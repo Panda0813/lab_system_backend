@@ -1,0 +1,12 @@
+.env
+*.pyc
+*.pyo
+*.log
+*.log*
+.idea/
+log/
+migrations/
+venv
+temporydata/
+report_files/
+report_images/

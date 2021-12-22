@@ -150,22 +150,22 @@ WSGI_APPLICATION = 'lab_system_backend.wsgi.application'
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    # },
     'default': {
-        'ENGINE': 'sql_server.pyodbc',
-        'NAME': 'UNIIC_LABTEST',
-        'HOST': '172.21.12.104',
-        'PORT': 1433,
-        'USER': 'DBConUser',
-        'PASSWORD': 'Uniic8253Yw#',
-        'OPTIONS': {
-            'driver': 'ODBC Driver 11 for SQL Server',
-            'MARS_Connection': True,
-        },
-    }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    },
+    # 'default': {
+    #     'ENGINE': 'sql_server.pyodbc',
+    #     'NAME': 'UNIIC_LABTEST',
+    #     'HOST': '172.21.12.104',
+    #     'PORT': 1433,
+    #     'USER': 'DBConUser',
+    #     'PASSWORD': 'Uniic8253Yw#',
+    #     'OPTIONS': {
+    #         'driver': 'ODBC Driver 11 for SQL Server',
+    #         'MARS_Connection': True,
+    #     },
+    # }
 }
 
 

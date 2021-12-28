@@ -21,7 +21,7 @@ from equipments.models import Project, Equipment, EquipmentDepreciationRecord
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
     EquipmentCalibrationInfo, EquipmentMaintenanceRecord
 from equipments.ext_utils import analysis_equipment_data, create_excel_resp
-from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL
+from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS
 from utils.log_utils import set_create_log, set_update_log, set_delete_log, get_differ, save_operateLog
 from utils.pagination import MyPagePagination
 from utils.timedelta_utls import calculate_datediff, get_holiday, calculate_end_time, calculate_due_date
@@ -247,9 +247,22 @@ def post_EquipmentData(request):
     return VIEW_SUCCESS()
 
 
+# 获取已存在的存放地点
+@api_view(['GET'])
+def get_deposit_position(request):
+    qs = Equipment.objects.values('deposit_position').distinct()
+    deposit_positions = []
+    if qs:
+        deposit_positions = [item['deposit_position'] for item in list(qs)]
+    return REST_SUCCESS(deposit_positions)
+
+
 # 查询设备，新增设备
 class EquipmentListGeneric(generics.ListCreateAPIView):
-    queryset = Equipment.objects.all()
+    model = Equipment
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+    queryset = model.objects.all()
     serializer_class = EquipmentSerializer
     pagination_class = MyPagePagination
 

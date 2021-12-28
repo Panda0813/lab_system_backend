@@ -36,8 +36,8 @@ class EquipmentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data.update(equipment_state=instance.get_equipment_state_display())
-        data.update(fixed_asset_category=instance.get_fixed_asset_category_display())
+        # data.update(equipment_state=instance.get_equipment_state_display())
+        # data.update(fixed_asset_category=instance.get_fixed_asset_category_display())
         return data
 
     class Meta:

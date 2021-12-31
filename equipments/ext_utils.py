@@ -26,11 +26,11 @@ def VIEW_FAIL(msg=None, data={}):
     return JsonResponse(res_dict)
 
 
-def REST_SUCCESS(data):
+def REST_SUCCESS(data={}):
     return Response(data)
 
 
-def REST_FAIL(data):
+def REST_FAIL(data={}):
     return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
 

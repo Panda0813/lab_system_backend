@@ -222,8 +222,6 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
 
 
 class OperateBorrowRecordSerializer(serializers.ModelSerializer):
-    is_approval = serializers.ReadOnlyField()
-    refuse_reason = serializers.ReadOnlyField()
     is_return = serializers.ReadOnlyField()
     actual_end_time = serializers.ReadOnlyField()
     expect_usage_time = serializers.ReadOnlyField()

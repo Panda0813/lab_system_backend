@@ -62,7 +62,7 @@ JWT_AUTH = {
     'JWT_EXPIRATION_DELTA': datetime.timedelta(days=1)
 }
 
-TOKEN_EXPIRE_DAYS = 1
+TOKEN_EXPIRE_DAYS = 3
 
 REST_FRAMEWORK = {
     'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S",

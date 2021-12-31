@@ -271,7 +271,9 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         search = request.GET.get('search', '')
         if search:
             queryset = queryset.filter(Q(id=search) | Q(name__contains=search) | Q(fixed_asset_name__contains=search))
-        #
+        equipment_state = request.GET.get('equipment_state')
+        if equipment_state:
+            queryset = queryset.filter(equipment_state=equipment_state)
         # fuzzy_params = {}
         # fuzzy_params['name'] = request.GET.get('name', '')
         # fuzzy_params['fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
@@ -369,7 +371,7 @@ class EquipmentDetail(APIView):
         before = EquipmentSerializer(equipment).data
         equipment.delete()
         save_operateLog('delete', request.user, self.table_name, self.verbose_name, before=before)
-        return VIEW_SUCCESS()
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 设备折旧记录
@@ -431,7 +433,7 @@ class DepreciationDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return VIEW_SUCCESS(msg='删除成功')
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 查询一个设备的可借用时间限制条件
@@ -467,7 +469,7 @@ class BorrowListGeneric(generics.ListCreateAPIView):
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
         fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
         fuzzy_params['project__name'] = request.GET.get('project_name', '')
-        fuzzy_params['section__name'] = request.GET.get('section_name', '')
+        fuzzy_params['user__section_name'] = request.GET.get('section_name', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -491,9 +493,10 @@ class BorrowListGeneric(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         data.update({'user': request.user})
-        data.update({'section': request.user.section})
         start_time = data.get('start_time')
         end_time = data.get('end_time')
+        if start_time > end_time:
+            raise serializers.ValidationError('开始时间不能大于结束时间')
         borrow_type = data.get('borrow_type')
 
         equipment = data.get('equipment')
@@ -613,6 +616,7 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_is_borrow = instance.is_borrow
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
@@ -621,7 +625,7 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
         expect_usage_time = calculate_datediff(start_time, end_time)
         data.update({'expect_usage_time': expect_usage_time})
         is_borrow = data.get('is_borrow')
-        if is_borrow is True:
+        if is_borrow is True and old_is_borrow is False:
             Equipment.objects.filter(id=instance.equipment.id).update(equipment_state=2)
         serializer.validated_data.update(data)
         self.perform_update(serializer)
@@ -637,7 +641,7 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return VIEW_SUCCESS(msg='删除成功')
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 查询可借用的时间范围
@@ -675,7 +679,7 @@ def get_AllowBorrowTime(request):
     else:
         if allow_borrow_days:
             allow_end_time = allow_start_time + datetime.timedelta(days=allow_borrow_days)
-    return VIEW_SUCCESS(data={'allow_start_time': allow_start_time, 'allow_end_time': allow_end_time})
+    return REST_SUCCESS(data={'allow_start_time': allow_start_time, 'allow_end_time': allow_end_time})
 
 
 # 归还设备
@@ -700,7 +704,7 @@ class ReturnListGeneric(generics.ListCreateAPIView):
         fuzzy_params['borrow_record__equipment__name'] = request.GET.get('equipment_name', '')
         fuzzy_params['borrow_record__equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
         fuzzy_params['borrow_record__project__name'] = request.GET.get('project_name', '')
-        fuzzy_params['borrow_record__section__name'] = request.GET.get('section_name', '')
+        fuzzy_params['borrow_record__section_name'] = request.GET.get('section_name', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -732,6 +736,7 @@ class OperateReturnApplyGeneric(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_confirm_state = instance.confirm_state
         borrow_obj = EquipmentBorrowRecord.objects.filter(id=instance.borrow_record_id)
         equipment_id = instance.borrow_record.equipment_id
         equipment_obj = Equipment.objects.filter(id=equipment_id)
@@ -742,7 +747,7 @@ class OperateReturnApplyGeneric(generics.RetrieveUpdateAPIView):
         data = serializer.validated_data.copy()
         confirm_state = data.get('confirm_state')
         return_position = data.get('return_position')
-        if confirm_state is not None:
+        if confirm_state is not None and old_confirm_state is None:
             data.update({'is_confirm': True})
             borrow_instance = borrow_obj.first()
             start_time = borrow_instance.start_time
@@ -780,7 +785,7 @@ class OperateReturnApplyGeneric(generics.RetrieveUpdateAPIView):
                         next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=actual_end_time,
                                                                             equipment_id=equipment_id,
                                                                             is_borrow=False, is_delete=False,
-                                                                            is_approval=True).order_by('id')
+                                                                            is_approval=1).order_by('id')
                         if next_user_qs:
                             next_user = next_user_qs.first().user
                     transaction.savepoint_commit(save_id)
@@ -824,7 +829,7 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
         fuzzy_params['user__username'] = request.GET.get('user_name', '')
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
         fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
-        fuzzy_params['section__name'] = request.GET.get('section_name', '')
+        fuzzy_params['user__section_name'] = request.GET.get('section_name', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -849,7 +854,6 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         broken_user = data.get('user')
-        data.update({'section': broken_user.section})
         serializer.validated_data.update(data)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
@@ -868,12 +872,13 @@ class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_is_maintenance = instance.is_maintenance
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         equipment_id = instance.equipment.id
         is_maintenance = data.get('is_maintenance')
-        if is_maintenance is True:
+        if is_maintenance is True and old_is_maintenance is False:
             Equipment.objects.filter(id=equipment_id).update(equipment_state=1)
         self.perform_update(serializer)
 
@@ -960,16 +965,17 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_state = instance.state
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         recalibration_time = data.get('recalibration_time')
         state = data.get('state')
         equipment = instance.equipment
-        if state == '已送检':
+        if state == '已送检' and old_state == '待送检':
             if equipment.equipment_state != 3:
                 Equipment.objects.filter(id=equipment.id).update(equipment_state=3)
-        elif state == '校验完成':
+        elif state == '校验完成' and old_state == '已送检':
             if equipment.equipment_state == 3:
                 Equipment.objects.filter(id=equipment.id).update(equipment_state=1)
         due_date = calculate_due_date(recalibration_time)
@@ -988,7 +994,7 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return VIEW_SUCCESS(msg='删除成功')
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 class MaintenanceGeneric(generics.ListCreateAPIView):
@@ -1067,4 +1073,4 @@ class OperateMaintenanceGeneric(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return VIEW_SUCCESS(msg='删除成功')
+        return REST_SUCCESS({'msg': '删除成功'})

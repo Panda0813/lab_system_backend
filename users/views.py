@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework_jwt.views import ObtainJSONWebToken, api_settings, jwt_response_payload_handler
 
 from utils.permission import IsActiveUserOrReadOnly, IsSuperUserOrReadOnly
-from equipments.ext_utils import REST_SUCCESS, REST_FAIL, VIEW_FAIL
+from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
     GroupSerializer
 from users.models import Section, User, OperationLog

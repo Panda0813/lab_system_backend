@@ -141,13 +141,12 @@ class EquipmentBorrowRecord(models.Model):
         ('续借', '续借')
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='借用人')
-    section = models.ForeignKey(Section, on_delete=models.CASCADE, verbose_name='部门', null=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, verbose_name='项目')
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
     start_time = models.DateTimeField(verbose_name='借用开始时间')
     end_time = models.DateTimeField(verbose_name='借用结束时间')
     borrow_type = models.CharField(verbose_name='借用类型', choices=BORROW_TYPE, default=BORROW_TYPE[0][0], max_length=20)
-    is_approval = models.BooleanField(default=False, verbose_name='是否批准')
+    is_approval = models.IntegerField(default=0, verbose_name='是否批准')  # 0 待审核, 1 已批准， 2 已拒绝
     refuse_reason = models.CharField(max_length=100, verbose_name='拒绝原因', null=True)
     is_borrow = models.BooleanField(default=False, verbose_name='是否借用成功')
     remarks = models.TextField(verbose_name='备注', null=True)
@@ -182,8 +181,8 @@ class EquipmentBorrowRecord(models.Model):
 
     @property
     def section_name(self):
-        if self.section:
-            return self.section.name
+        if self.user:
+            return self.user.section_name
         else:
             return None
 
@@ -240,7 +239,7 @@ class EquipmentReturnRecord(models.Model):
     @property
     def section_name(self):
         if self.borrow_record:
-            return self.borrow_record.section.name
+            return self.borrow_record.section_name
         else:
             return None
 
@@ -274,7 +273,6 @@ class EquipmentBrokenInfo(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='损坏人')
-    section = models.ForeignKey(Section, on_delete=models.CASCADE, verbose_name='部门', null=True)
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
     broken_time = models.DateTimeField(verbose_name='损坏时间')
     broken_reason = models.CharField(verbose_name='损坏原因', max_length=200, null=True)
@@ -300,8 +298,8 @@ class EquipmentBrokenInfo(models.Model):
 
     @property
     def section_name(self):
-        if self.section:
-            return self.section.name
+        if self.user:
+            return self.user.section_name
         else:
             return None
 

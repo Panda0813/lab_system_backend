@@ -20,7 +20,7 @@ class RemindReturnTask:
         #                       julianday(strftime('%Y-%m-%d %H:%M:%S', datetime('now', 'localtime')))) * 86400, 2)
         #                       as delta_seconds
         #                    from equipment_borrow_record where delta_seconds < {}
-        #                               and is_borrow=TRUE and is_return=FALSE
+        #                               and is_borrow=1 and is_return=0
         #                               and is_overtime_remind=FALSE'''.format(remind_seconds)
         query_sql = '''select id, user_id, equipment_id, is_borrow, is_return, end_time, is_final_remind, is_overtime_remind,
                            datediff(ss, getdate(), end_time) as delta_seconds

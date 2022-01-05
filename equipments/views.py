@@ -767,7 +767,7 @@ class OperateReturnApplyGeneric(generics.RetrieveUpdateAPIView):
                 save_id = transaction.savepoint()
                 try:
                     # 更新借用记录
-                    borrow_obj.update(is_return=True,
+                    borrow_obj.update(is_return=2,
                                       is_interrupted=is_interrupted,
                                       actual_end_time=actual_end_time,
                                       actual_usage_time=actual_usage_time,
@@ -854,6 +854,15 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         broken_user = data.get('user')
+        evaluation_result = data.get('evaluation_result')
+        equipment = data.get('equipment')
+        if evaluation_result:
+            if evaluation_result == '故障':
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=5)
+            elif evaluation_result == '闲置':
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=6)
+            elif evaluation_result == '报废':
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=7)
         serializer.validated_data.update(data)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
@@ -872,14 +881,8 @@ class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        old_is_maintenance = instance.is_maintenance
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data.copy()
-        equipment_id = instance.equipment.id
-        is_maintenance = data.get('is_maintenance')
-        if is_maintenance is True and old_is_maintenance is False:
-            Equipment.objects.filter(id=equipment_id).update(equipment_state=1)
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):

@@ -150,7 +150,7 @@ class EquipmentBorrowRecord(models.Model):
     refuse_reason = models.CharField(max_length=100, verbose_name='拒绝原因', null=True)
     is_borrow = models.BooleanField(default=False, verbose_name='是否借用成功')
     remarks = models.TextField(verbose_name='备注', null=True)
-    is_return = models.BooleanField(default=False, verbose_name='是否已归还')
+    is_return = models.IntegerField(default=0, verbose_name='是否已归还')  # 0 未归还，1 待确认，2 已归还
     is_interrupted = models.BooleanField(default=False, verbose_name='借用是否被中断')
     is_recovery_interrupt = models.BooleanField(default=False, verbose_name='是否已恢复中断')
     actual_end_time = models.DateTimeField(verbose_name='实际借用结束时间', null=True)

@@ -152,6 +152,35 @@ class UserListGeneric(generics.ListAPIView):
     serializer_class = UserSerializer
     pagination_class = MyPagePagination
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        employee_no = request.GET.get('employee_no')
+        if employee_no:
+            queryset = queryset.filter(employee_no=employee_no)  # 精确查询
+        section_id = request.GET.get('section')
+        if section_id:
+            queryset = queryset.filter(section_id=section_id)
+
+        fuzzy_params = {}
+        fuzzy_params['username'] = request.GET.get('username', '')
+
+        filter_params = {}
+        for k, v in fuzzy_params.items():
+            if v != None and v != '':
+                k = k + '__contains'
+                filter_params[k] = v
+
+        if filter_params:
+            queryset = queryset.filter(**filter_params)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class UserDetailGeneric(generics.RetrieveUpdateAPIView):
     queryset = User.objects.filter(is_delete=False).all()

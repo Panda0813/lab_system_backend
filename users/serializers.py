@@ -106,7 +106,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'telephone', 'employee_no', 'email', 'section', 'section_name')
+        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name')
+
+    def update(self, instance, validated_data):
+        validated_data['password'] = make_password(validated_data.get('password'))
+        return super(UserSerializer, self).update(instance, validated_data)
 
 
 class OperationLogSerializer(serializers.ModelSerializer):

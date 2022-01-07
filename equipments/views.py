@@ -274,6 +274,11 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         equipment_state = request.GET.get('equipment_state')
         if equipment_state:
             queryset = queryset.filter(equipment_state=equipment_state)
+        calibration_state = request.GET.get('calibration_state')
+        if calibration_state:
+            calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
+            calibration_qs = [q['equipment_id'] for q in calibration_qs]
+            queryset = queryset.exclude(id__in=calibration_qs)
         # fuzzy_params = {}
         # fuzzy_params['name'] = request.GET.get('name', '')
         # fuzzy_params['fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
@@ -1043,7 +1048,6 @@ class MaintenanceGeneric(generics.ListCreateAPIView):
         data = serializer.validated_data.copy()
         equipment = data.get('equipment')
         Equipment.objects.filter(id=equipment.id).update(equipment_state=1)
-        data.update({'maintenance_user': request.user.username})
         serializer.validated_data.update(data)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)

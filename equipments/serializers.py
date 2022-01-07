@@ -356,12 +356,12 @@ class OperateCalibrationSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceSerializer(serializers.ModelSerializer):
-    maintenance_user = serializers.ReadOnlyField()
+    create_time = serializers.ReadOnlyField()
 
     class Meta:
         model = EquipmentMaintenanceRecord
         fields = ('id', 'user', 'user_name', 'equipment', 'equipment_name', 'fault_description', 'reason_measure',
-                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user', 'remarks')
+                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user', 'remarks', 'create_time')
 
 
 class OperateMaintenanceSerializer(serializers.ModelSerializer):

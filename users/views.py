@@ -31,7 +31,7 @@ class GroupListGeneric(generics.ListCreateAPIView):
 
 
 class SectionListGeneric(generics.ListCreateAPIView):
-    queryset = Section.objects.filter(is_delete=False).all()
+    queryset = Section.objects.all()
     serializer_class = SectionSerializer
     permission_classes = [IsActiveUserOrReadOnly]
     filter_backends = [filters.SearchFilter]
@@ -45,7 +45,7 @@ class SectionListGeneric(generics.ListCreateAPIView):
 
 
 class SectionDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Section.objects.filter(is_delete=False).all()
+    queryset = Section.objects.all()
     serializer_class = SectionSerializer
 
 
@@ -201,8 +201,6 @@ class ChangePassword(APIView):
                 return REST_FAIL({'msg': "仅允许6~20个字符的新密码"})
             user.set_password(password)
             user.save()
-            token = Token.objects.get(user=user)
-            token.delete()
             return REST_SUCCESS({"msg": "修改成功"})
         else:
             return REST_FAIL({"msg": "原密码错误"})

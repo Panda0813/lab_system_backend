@@ -50,7 +50,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'label': '手机号',
                 'required': True,
                 # 手机号重复验证
-                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该手机号已被注册')],
+                'validators': [validators.UniqueValidator(queryset=User.objects.filter(is_delete=False).all(), message='该手机号已被注册')],
                 'error_messages': {
                     'blank': '手机号[telephone]不能为空',
                     'required': '手机号[telephone]为必填项'
@@ -60,7 +60,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'label': '工号',
                 'required': True,
                 # 工号重复验证
-                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该工号已存在')],
+                'validators': [validators.UniqueValidator(queryset=User.objects.filter(is_delete=False).all(), message='该工号已存在')],
                 'error_messages': {
                     'blank': '工号[employee_no]不能为空',
                     'required': '工号[employee_no]为必填项'
@@ -70,7 +70,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'label': '邮箱',
                 'required': True,
                 # 邮箱重复验证
-                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该邮箱已被注册')],
+                'validators': [validators.UniqueValidator(queryset=User.objects.filter(is_delete=False).all(), message='该邮箱已被注册')],
                 'error_messages': {
                     'blank': '邮箱[email]不能为空',
                     'required': '邮箱[email]为必填项'

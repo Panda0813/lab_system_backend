@@ -162,7 +162,7 @@ def post_EquipmentData(request):
             net_salvage = data.get('net_salvage')
             equipment_state = data.get('equipment_state')
 
-            existqs = Equipment.objects.filter(id=equipment_id)  # 判断设备是否存在，存在则更新
+            existqs = Equipment.objects.filter(id=equipment_id, is_delete=False)  # 判断设备是否存在，存在则更新
             if existqs:
                 update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_name,
                                   fixed_asset_category, specification, performance, is_allow_renew, deposit_position,
@@ -262,7 +262,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
     model = Equipment
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
-    queryset = model.objects.all()
+    queryset = model.objects.filter(is_delete=False).all().order_by('create_time')
     serializer_class = EquipmentSerializer
     pagination_class = MyPagePagination
 
@@ -309,13 +309,26 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
 
 
 class EquipmentDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Equipment.objects.all()
+    queryset = Equipment.objects.filter(is_delete=False).all()
     serializer_class = EquipmentSerializer
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+
+# 查询某个设备是否存在数据库
+@api_view(['GET'])
+def query_equip_exist(request):
+    equipment_id = request.GET.get('equipment_id')
+    if not equipment_id:
+        return REST_FAIL({'msg': '设备ID不能为空'})
+    qs = Equipment.objects.filter(id=equipment_id)
+    data = {}
+    if qs:
+        data = list(qs.values())[0]
+    return REST_SUCCESS(data)
 
 
 # 对设备信息进行操作
@@ -344,12 +357,17 @@ class EquipmentDetail(APIView):
         equipment_id = request.data.get('id')
         equipment = self.get_object(equipment_id)
         if not equipment:
-            return REST_FAIL({'msg': '找不到该设备'})
+            return REST_SUCCESS({'msg': '找不到该设备'})
         before = EquipmentSerializer(equipment).data
         extendattribute_set = request.data.pop('extendattribute_set', [])
         serializer = EquipmentSerializer(equipment, data=request.data)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
+            if Equipment.objects.filter(pk=equipment_id).first().is_delete:
+                data = serializer.validated_data.copy()
+                data.update({'is_delete': False})
+                data.update({'create_time': datetime.datetime.now()})
+                serializer.validated_data.update(data)
+                serializer.save()
             if extendattribute_set:
                 for _fields in extendattribute_set:
                     attribute_name = _fields['attribute_name']

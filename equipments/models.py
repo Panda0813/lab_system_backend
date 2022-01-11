@@ -8,7 +8,7 @@ class QuerySetManage(models.Manager):
 
 
 class Project(models.Model):
-    name = models.CharField(max_length=100, verbose_name='项目名称', unique=True)
+    name = models.CharField(max_length=100, verbose_name='项目名称')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
@@ -80,7 +80,7 @@ class Equipment(models.Model):
     remarks = models.TextField(verbose_name='备注', null=True)
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
 
-    objects = QuerySetManage()
+    # objects = QuerySetManage()
 
     class Meta:
         db_table = 'equipment'
@@ -318,7 +318,7 @@ class EquipmentCalibrationInfo(models.Model):
         ('已送检', '已送检')
     )
 
-    equipment = models.OneToOneField(Equipment, on_delete=models.CASCADE, verbose_name='设备')
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
     calibration_time = models.DateField(verbose_name='校准日期')
     recalibration_time = models.DateField(verbose_name='再校准日期')
     due_date = models.CharField(verbose_name='到期日', max_length=50)

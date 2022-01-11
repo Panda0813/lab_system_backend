@@ -48,7 +48,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
                   'per_hour_price', 'is_allow_renew', 'deposit_position', 'manufacturer', 'manufacture_date',
                   'custodian', 'equipment_state', 'usage_description', 'dispose_suggestion', 'application_specialist',
                   'user_manual', 'license', 'purchase_date', 'purchase_cost', 'entry_date', 'original_cost',
-                  'estimate_life', 'net_salvage', 'extendattribute_set')
+                  'estimate_life', 'net_salvage', 'extendattribute_set', 'is_delete', 'create_time')
         extra_kwargs = {
             'id': {
                 'label': '设备仪器ID',

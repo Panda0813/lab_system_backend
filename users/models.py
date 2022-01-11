@@ -40,7 +40,7 @@ class Section(models.Model):
     """
     部门
     """
-    name = models.CharField(max_length=20, verbose_name='部门名称', unique=True)
+    name = models.CharField(max_length=20, verbose_name='部门名称')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
@@ -66,10 +66,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     重写User模型
     """
     username = models.CharField(max_length=50, verbose_name='用户名称')
-    telephone = models.CharField(max_length=11, unique=True, verbose_name='联系方式')
+    telephone = models.CharField(max_length=11, verbose_name='联系方式')
     login_name = models.CharField(max_length=50, verbose_name='登录名', unique=True)
-    employee_no = models.CharField(max_length=10, verbose_name='工号', unique=True)
-    email = models.EmailField(unique=True, verbose_name='邮箱', max_length=100)
+    employee_no = models.CharField(max_length=10, verbose_name='工号')
+    email = models.EmailField(verbose_name='邮箱', max_length=100)
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='所属部门')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')

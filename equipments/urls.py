@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^install-template$', views.get_import_template),
     url(r'^import-base-data$', views.post_EquipmentData),
     url(r'^get-deposit-position$', views.get_deposit_position),
+    url(r'^equipment-exist$', views.query_equip_exist),
     url(r'^depreciation$', views.DepreciationListGeneric.as_view()),
     url(r'^depreciation/(?P<pk>[0-9]+)$', views.DepreciationDetailGeneric.as_view()),
     url(r'^borrow-apply$', views.BorrowListGeneric.as_view()),

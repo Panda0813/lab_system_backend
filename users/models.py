@@ -1,5 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager, AbstractUser
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager, \
+    AbstractUser, Group
 from django.db.models import QuerySet
 
 
@@ -122,3 +123,22 @@ class OperationLog(models.Model):
         verbose_name = '操作日志表'
         verbose_name_plural = verbose_name
 
+
+class Role(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name='所属组')
+    name = models.CharField(verbose_name='角色名称', max_length=50)
+    routes = models.TextField(verbose_name='角色权限', null=True)
+    create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
+    update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
+
+    class Meta:
+        db_table = 'role'
+        verbose_name = '角色权限表'
+        verbose_name_plural = verbose_name
+
+    @property
+    def group_name(self):
+        if self.group:
+            return self.group.name
+        else:
+            return None

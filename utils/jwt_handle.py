@@ -5,6 +5,12 @@ from django.contrib.auth.models import Group
 def jwt_response_payload_handler(token, user=None, request=None):
     groups = Group.objects.filter(user=user)
     roles = [group.name for group in groups]
+    permissions = []
+    for group in groups:
+        routes = group.role_set.first().routes
+        if routes:
+            permissions.extend(eval(routes))
+    permissions = list(set(permissions))
     return {
         'userInfo': {
             'user_id': user.id,
@@ -13,7 +19,8 @@ def jwt_response_payload_handler(token, user=None, request=None):
             'is_superuser': user.is_superuser,
         },
         'token': 'JWT ' + token,
-        'roles': roles
+        'roles': roles,
+        'permissions': permissions
     }
 
 

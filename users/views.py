@@ -1,11 +1,12 @@
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
+from django.db import transaction
 from django.http import QueryDict
 from django.utils import timezone
 from django.contrib.auth.models import Group
 from rest_framework.views import APIView
 from rest_framework import filters
-from rest_framework import generics
+from rest_framework import generics, serializers
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework import status
@@ -15,12 +16,16 @@ from rest_framework_jwt.views import ObtainJSONWebToken, api_settings, jwt_respo
 from utils.permission import IsActiveUserOrReadOnly, IsSuperUserOrReadOnly
 from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
-    GroupSerializer
-from users.models import Section, User, OperationLog
+    GroupSerializer, RoleSerializer, OperateRoleSerializer
+from users.models import Section, User, OperationLog, Role
 from utils.pagination import MyPagePagination
+from utils.log_utils import set_delete_log
 from lab_system_backend import settings
 
 import datetime
+import logging
+
+logger = logging.getLogger('django')
 
 EXPIRE_DAYS = getattr(settings, 'TOKEN_EXPIRE_DAYS')
 
@@ -28,6 +33,32 @@ EXPIRE_DAYS = getattr(settings, 'TOKEN_EXPIRE_DAYS')
 class GroupListGeneric(generics.ListCreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
+
+
+class RoleListGeneric(generics.ListCreateAPIView):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+
+
+class RoleDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Role.objects.all()
+    serializer_class = OperateRoleSerializer
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        group = instance.group
+        with transaction.atomic():
+            save_id = transaction.savepoint()
+            try:
+                Group.objects.filter(id=group.id).delete()
+                self.perform_destroy(instance)
+                transaction.savepoint_commit(save_id)
+            except Exception as e:
+                transaction.savepoint_rollback(save_id)
+                logger.info('删除角色失败, error:{}'.format(str(e)))
+                raise serializers.ValidationError('删除失败')
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 class SectionListGeneric(generics.ListCreateAPIView):
@@ -62,6 +93,7 @@ class CustomBackend(ModelBackend):
                 username = kwargs.get('login_name')
             user = User.objects.get(Q(login_name=username) | Q(telephone=username) |
                                     Q(employee_no=username) | Q(email=username))
+            from django.contrib.auth.hashers import make_password
             if user.check_password(password):
                 return user
         except User.DoesNotExist:
@@ -134,7 +166,8 @@ class JwtLoginView(ObtainJSONWebToken):
                                         expires=expiration,
                                         httponly=True)
                 return response
-        except:
+        except Exception as e:
+            logger.error('登录失败, error: {}'.format(str(e)))
             return Response({'msg': '账号或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
 
 

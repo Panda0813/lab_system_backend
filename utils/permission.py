@@ -9,7 +9,9 @@ class IsActiveUser(BasePermission):
     允许启用的用户、超管
     """
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_active or request.user.is_superuser)
+        return bool(request.user and request.user.is_active or
+                    request.user.is_superuser or
+                    request.GET.get('from_path') == 'register')
 
 
 class IsActiveUserOrReadOnly(BasePermission):

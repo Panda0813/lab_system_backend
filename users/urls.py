@@ -2,6 +2,7 @@ from django.conf.urls import url, include
 from users import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_jwt.views import obtain_jwt_token
+from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 
 router = DefaultRouter()
 

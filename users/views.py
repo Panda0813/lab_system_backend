@@ -6,14 +6,14 @@ from django.utils import timezone
 from django.contrib.auth.models import Group
 from rest_framework.views import APIView
 from rest_framework import filters
-from rest_framework import generics, serializers
+from rest_framework import generics, serializers, permissions
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework_jwt.views import ObtainJSONWebToken, api_settings, jwt_response_payload_handler
 
-from utils.permission import IsActiveUserOrReadOnly, IsSuperUserOrReadOnly
+from utils.permission import IsActiveUserOrReadOnly, IsSuperUserOrReadOnly, IsActiveUser
 from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
     GroupSerializer, RoleSerializer, OperateRoleSerializer
@@ -183,6 +183,7 @@ class LogoutView(APIView):
 class UserListGeneric(generics.ListAPIView):
     queryset = User.objects.all().filter(is_delete=False).order_by('-register_time')
     serializer_class = UserSerializer
+    permission_classes = [IsActiveUser]
     pagination_class = MyPagePagination
 
     def list(self, request, *args, **kwargs):
@@ -193,6 +194,12 @@ class UserListGeneric(generics.ListAPIView):
         section_id = request.GET.get('section')
         if section_id:
             queryset = queryset.filter(section_id=section_id)
+        telephone = request.GET.get('telephone')
+        if telephone:
+            queryset = queryset.filter(telephone=telephone)
+        email = request.GET.get('email')
+        if email:
+            queryset = queryset.filter(email=email)
 
         fuzzy_params = {}
         fuzzy_params['username'] = request.GET.get('username', '')

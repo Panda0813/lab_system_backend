@@ -31,6 +31,8 @@ class UserManager(BaseUserManager):
 
     # 创建超级用户
     def create_superuser(self, telephone, username, password, **kwargs):
+        developer_id = Group.objects.filter(name='developer').first().id
+        kwargs['roles'] = [{'id': developer_id, 'name': 'developer'}]
         kwargs['login_name'] = kwargs.get('employee_no')
         kwargs['is_superuser'] = True
         kwargs['is_staff'] = True
@@ -76,6 +78,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
     is_staff = models.BooleanField(default=False, verbose_name='是否是员工')
+    roles = models.TextField(verbose_name='拥有角色', null=True)
 
     USERNAME_FIELD = 'login_name'  # authenticate 进行验证的字段
     # createsuperuser命令输入的字段，django默认需要输入密码，所以不用指定要password
@@ -125,7 +128,7 @@ class OperationLog(models.Model):
 
 
 class Role(models.Model):
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name='所属组')
+    code = models.CharField(verbose_name='角色编码', max_length=50)
     name = models.CharField(verbose_name='角色名称', max_length=50)
     routes = models.TextField(verbose_name='角色权限', null=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)

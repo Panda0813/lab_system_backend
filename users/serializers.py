@@ -14,7 +14,7 @@ logger = logging.getLogger('django')
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ('name', )
+        fields = ('id', 'name', )
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Group.objects.all(), message='该名称已存在')],
@@ -27,14 +27,9 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class RoleSerializer(serializers.ModelSerializer):
-    group_name = serializers.CharField(source='group.name', label='角色编码', required=True,
-                                       error_messages={
-                                           'blank': '角色编码[group_name]不能为空',
-                                           'required': '角色编码[group_name]为必填项'})
-
     class Meta:
         model = Role
-        fields = ('id', 'name', 'group_name', 'routes')
+        fields = ('id', 'name', 'code', 'routes')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
@@ -42,27 +37,15 @@ class RoleSerializer(serializers.ModelSerializer):
                     'blank': '角色名称[name]不能为空',
                     'required': '角色名称[name]为必填项'
                 }
+            },
+            'code': {
+                'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
+                'error_messages': {
+                    'blank': '角色编码[code]不能为空',
+                    'required': '角色编码[code]为必填项'
+                }
             }
         }
-
-    def create(self, validated_data):
-        group = validated_data.pop('group')
-        group_name = group.get('name')
-        existqs = Group.objects.filter(name=group_name)
-        if existqs:
-            raise serializers.ValidationError('该角色编码已存在')
-        with transaction.atomic():
-            save_id = transaction.savepoint()
-            try:
-                group = Group.objects.create(name=group_name)
-                validated_data['group'] = group
-                role = Role.objects.create(**validated_data)
-                transaction.savepoint_commit(save_id)
-            except Exception as e:
-                transaction.savepoint_rollback(save_id)
-                logger.error('存储角色信息失败, error:{}'.format(str(e)))
-                raise serializers.ValidationError('存储角色信息失败')
-        return role
 
 
 class OperateRoleSerializer(serializers.ModelSerializer):
@@ -158,9 +141,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         validated_data['password'] = make_password(validated_data.get('password'))
+        validated_data['login_name'] = validated_data.get('employee_no')
+        standard_id = Group.objects.filter(name='standardUser').first().id
+        validated_data['roles'] = [{'id': standard_id, 'name': 'standardUser'}]
         # 创建User对象
         user = User.objects.create(**validated_data)
-        user.groups.add(Group.objects.filter(name='standardUser').first())
         return user
 
 
@@ -169,10 +154,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name')
+        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name', 'roles')
 
     def update(self, instance, validated_data):
-        validated_data['password'] = make_password(validated_data.get('password'))
+        if instance.password != validated_data.get('password'):
+            validated_data['password'] = make_password(validated_data.get('password'))
         return super(UserSerializer, self).update(instance, validated_data)
 
 

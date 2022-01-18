@@ -1,16 +1,18 @@
-from users.models import User
-from django.contrib.auth.models import Group
+from users.models import User, Role
 
 
 def jwt_response_payload_handler(token, user=None, request=None):
-    groups = Group.objects.filter(user=user)
-    roles = [group.name for group in groups]
+    roles = []
     permissions = []
-    for group in groups:
-        routes = group.role_set.first().routes
-        if routes:
-            permissions.extend(eval(routes))
-    permissions = list(set(permissions))
+    if user.roles:
+        user_roles = eval(user.roles)
+        roles = [u['name'] for u in user_roles]
+        permissions = []
+        for role in user_roles:
+            routes = Role.objects.get(id=role['id']).routes
+            if routes:
+                permissions.extend(eval(routes))
+        permissions = list(set(permissions))
     return {
         'userInfo': {
             'user_id': user.id,

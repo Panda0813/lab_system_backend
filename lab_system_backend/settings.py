@@ -74,6 +74,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         # 只有登录用户才可以访问
         'rest_framework.permissions.IsAuthenticated',
+        # 'utils.permission.IsActiveUser',
     ],
     # 全局配置异常模块
     # 'EXCEPTION_HANDLER': 'utils.exception_handle.custom_exception_handler',

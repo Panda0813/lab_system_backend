@@ -67,7 +67,7 @@ TOKEN_EXPIRE_DAYS = 3
 REST_FRAMEWORK = {
     'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S",
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
+        # 'rest_framework.authentication.BasicAuthentication',
         # 'utils.authentication.ExpiringTokenAuthentication',
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication'
     ],

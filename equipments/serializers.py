@@ -43,16 +43,14 @@ class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
         # fields = '__all__'
-        fields = ('id', 'name', 'number', 'serial_number', 'fixed_asset_code', 'fixed_asset_name', 'fixed_asset_category',
-                  'specification', 'performance', 'purpose', 'default_borrow_hours', 'allow_borrow_days',
-                  'per_hour_price', 'is_allow_renew', 'deposit_position', 'manufacturer', 'manufacture_date',
-                  'custodian', 'equipment_state', 'usage_description', 'dispose_suggestion', 'application_specialist',
-                  'user_manual', 'license', 'purchase_date', 'purchase_cost', 'entry_date', 'original_cost',
-                  'estimate_life', 'net_salvage', 'extendattribute_set', 'is_delete', 'create_time')
+        fields = ('id', 'name', 'number', 'serial_number', 'fixed_asset_code', 'fixed_asset_category', 'custodian',
+                  'equipment_state', 'service_type', 'specification', 'performance', 'assort_material',
+                  'allow_borrow_days', 'per_hour_price', 'deposit_position', 'install_date', 'manage_type', 'manager',
+                  'application_specialist', 'manufacturer', 'manufacture_date', 'origin_place',
+                  'user_manual', 'license', 'extendattribute_set', 'is_delete', 'create_time')
         extra_kwargs = {
             'id': {
                 'label': '设备仪器ID',
-                'help_text': '设备仪器ID',
                 'required': True,
                 'validators': [validators.UniqueValidator(queryset=Equipment.objects.all(), message='该设备仪器ID已存在')],
                 'error_messages': {
@@ -65,43 +63,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
                     'blank': '设备名称[name]不能为空',
                     'required': '设备名称[name]为必填项'
                 }
-            },
-            'deposit_position': {
-                'error_messages': {
-                    'blank': '存放地点[deposit_position]不能为空',
-                    'required': '存放地点[deposit_position]为必填项'
-                }
-            },
-            # 'serial_number': {
-            #     'error_messages': {
-            #         'blank': '序列号[serial_number]不能为空',
-            #         'required': '序列号[serial_number]为必填项'
-            #     }
-            # },
-            # 'fixed_asset_code': {
-            #     'error_messages': {
-            #         'blank': '固定资产编码[fixed_asset_code]不能为空',
-            #         'required': '固定资产编码[fixed_asset_code]为必填项'
-            #     }
-            # },
-            # 'fixed_asset_name': {
-            #     'error_messages': {
-            #         'blank': '固定资产名称[fixed_asset_name]不能为空',
-            #         'required': '固定资产名称[fixed_asset_name]为必填项'
-            #     }
-            # },
-            # 'specification': {
-            #     'error_messages': {
-            #         'blank': '规格型号描述[specification]不能为空',
-            #         'required': '规格型号描述[specification]为必填项'
-            #     }
-            # },
-            # 'custodian': {
-            #     'error_messages': {
-            #         'blank': '保管人[custodian]不能为空',
-            #         'required': '保管人[custodian]为必填项'
-            #     }
-            # }
+            }
         }
 
     def create(self, validated_data):
@@ -171,78 +133,6 @@ class DepreciationSerializer(serializers.ModelSerializer):
         }
 
 
-class BorrowRecordSerializer(serializers.ModelSerializer):
-    is_approval = serializers.ReadOnlyField()
-    refuse_reason = serializers.ReadOnlyField()
-    is_borrow = serializers.ReadOnlyField()
-    remarks = serializers.ReadOnlyField()
-    is_return = serializers.ReadOnlyField()
-    actual_end_time = serializers.ReadOnlyField()
-    expect_usage_time = serializers.ReadOnlyField()
-    actual_usage_time = serializers.ReadOnlyField()
-    is_interrupted = serializers.ReadOnlyField()
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data.update(borrow_type=instance.get_borrow_type_display())
-        return data
-
-    class Meta:
-        model = EquipmentBorrowRecord
-        fields = ('id', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name',
-                  'borrow_type', 'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
-                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks')
-
-        extra_kwargs = {
-            'project': {
-                'error_messages': {
-                    'blank': '项目[project]不能为空',
-                    'required': '项目[project]为必填项'
-                }
-            },
-            'equipment': {
-                'error_messages': {
-                    'blank': '设备[equipment]不能为空',
-                    'required': '设备[equipment]为必填项'
-                }
-            },
-            'start_time': {
-                'error_messages': {
-                    'blank': '借用开始时间[start_time]不能为空',
-                    'required': '借用开始时间[start_time]为必填项'
-                }
-            },
-            'end_time': {
-                'error_messages': {
-                    'blank': '借用结束时间[end_time]不能为空',
-                    'required': '借用结束时间[end_time]为必填项'
-                }
-            }
-        }
-
-
-class OperateBorrowRecordSerializer(serializers.ModelSerializer):
-    is_return = serializers.ReadOnlyField()
-    actual_end_time = serializers.ReadOnlyField()
-    expect_usage_time = serializers.ReadOnlyField()
-    is_interrupted = serializers.ReadOnlyField()
-    borrow_type = serializers.ReadOnlyField()
-
-    class Meta:
-        model = EquipmentBorrowRecord
-        fields = ('id', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name', 'borrow_type',
-                  'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
-                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks')
-        extra_kwargs = {
-            'project': {
-                'read_only': True,
-            },
-            'equipment': {
-                'read_only': True,
-            },
-        }
-
-
 class ReturnApplySerializer(serializers.ModelSerializer):
     borrow_record_id = serializers.IntegerField(label='借用记录ID', required=True,
                                                 validators=[validators.UniqueValidator(queryset=EquipmentReturnRecord.objects.all(),
@@ -296,6 +186,81 @@ class OperateReturnApplySerializer(serializers.ModelSerializer):
         model = EquipmentReturnRecord
         fields = ('id', 'borrow_record_id', 'user', 'user_name', 'section_name', 'project_name', 'equipment', 'equipment_name',
                   'return_time', 'return_position', 'is_interrupted', 'is_confirm', 'confirm_state', 'remarks')
+
+
+class BorrowRecordSerializer(serializers.ModelSerializer):
+    is_approval = serializers.ReadOnlyField()
+    refuse_reason = serializers.ReadOnlyField()
+    is_borrow = serializers.ReadOnlyField()
+    remarks = serializers.ReadOnlyField()
+    is_return = serializers.ReadOnlyField()
+    actual_end_time = serializers.ReadOnlyField()
+    expect_usage_time = serializers.ReadOnlyField()
+    actual_usage_time = serializers.ReadOnlyField()
+    is_interrupted = serializers.ReadOnlyField()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data.update(borrow_type=instance.get_borrow_type_display())
+        return data
+
+    class Meta:
+        model = EquipmentBorrowRecord
+        fields = ('id', 'user', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name',
+                  'borrow_type', 'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
+                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks',
+                  'return_confirm_state', 'return_position')
+
+        extra_kwargs = {
+            'user': {
+                'read_only': True
+            },
+            'project': {
+                'error_messages': {
+                    'blank': '项目[project]不能为空',
+                    'required': '项目[project]为必填项'
+                }
+            },
+            'equipment': {
+                'error_messages': {
+                    'blank': '设备[equipment]不能为空',
+                    'required': '设备[equipment]为必填项'
+                }
+            },
+            'start_time': {
+                'error_messages': {
+                    'blank': '借用开始时间[start_time]不能为空',
+                    'required': '借用开始时间[start_time]为必填项'
+                }
+            },
+            'end_time': {
+                'error_messages': {
+                    'blank': '借用结束时间[end_time]不能为空',
+                    'required': '借用结束时间[end_time]为必填项'
+                }
+            }
+        }
+
+
+class OperateBorrowRecordSerializer(serializers.ModelSerializer):
+    expect_usage_time = serializers.ReadOnlyField()
+    is_interrupted = serializers.ReadOnlyField()
+    borrow_type = serializers.ReadOnlyField()
+
+    class Meta:
+        model = EquipmentBorrowRecord
+        fields = ('id', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name', 'borrow_type',
+                  'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
+                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks',
+                  'return_confirm_state', 'return_position')
+        extra_kwargs = {
+            'project': {
+                'read_only': True,
+            },
+            'equipment': {
+                'read_only': True,
+            },
+        }
 
 
 class BrokenInfoSerializer(serializers.ModelSerializer):

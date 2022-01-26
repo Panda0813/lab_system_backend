@@ -1,6 +1,6 @@
 from django.views.generic.base import View
 from django.http import QueryDict
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.db import connection, close_old_connections, transaction
 from rest_framework import generics, serializers
 from rest_framework import filters, status
@@ -48,6 +48,64 @@ class ProjectDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProjectSerializer
 
 
+# 获取对应关系
+@api_view(['GET'])
+def get_map_options(request):
+    equipment_state = [
+        {'value': 1, 'label': '待用'},
+        {'value': 2, 'label': '使用中'},
+        {'value': 3, 'label': '维护中'},
+        {'value': 4, 'label': '闲置'},
+        {'value': 5, 'label': '代管'},
+        {'value': 6, 'label': '报废'}]
+    service_type = [
+        {'value': 1, 'label': '不可用'},
+        {'value': 2, 'label': '领用'},
+        {'value': 3, 'label': '随用'},
+        {'value': 4, 'label': '预约'},
+        {'value': 5, 'label': '专用'},
+    ]
+    manage_type = [
+        {'value': 1, 'label': 'PM'},
+        {'value': 2, 'label': 'Check'},
+        {'value': 3, 'label': 'Inspection'}
+    ]
+    return REST_SUCCESS({
+        'equipment_state': equipment_state,
+        'service_type': service_type,
+        'manage_type': manage_type
+    })
+
+
+# 查询设备类别
+@api_view(['GET'])
+def get_category(request):
+    categoryBase = [
+        {'id': 1, 'name': 'APT MB & SLT System'},
+        {'id': 2, 'name': 'ATE Tester'},
+        {'id': 3, 'name': 'Device Test Tooling'},
+        {'id': 4, 'name': 'Facility Equipment & Tool'},
+        {'id': 5, 'name': 'Inspection & Rework'},
+        {'id': 6, 'name': 'Measurement & Intrumentation'},
+        {'id': 7, 'name': 'Other Tool, Jig & Kit'},
+        {'id': 8, 'name': 'Probe, Tip & Assembly'},
+        {'id': 9, 'name': 'Reliability & Environment'},
+        {'id': 10, 'name': 'Tester Cell Machine'}]
+    df1 = pd.DataFrame(categoryBase)
+    countqs = Equipment.objects.values('fixed_asset_category').annotate(count=Count('id')).all()
+    if countqs:
+        countqs = list(countqs)
+        df2 = pd.DataFrame(countqs)
+        df2.rename(columns={'fixed_asset_category': 'id'}, inplace=True)
+        df = pd.merge(df1, df2, on='id', how='left')
+        df.fillna(0, inplace=True)
+    else:
+        df = df1.copy()
+        df['count'] = 0
+    df['count'] = df['count'].astype('int')
+    category = df.to_dict('records')
+    return REST_SUCCESS(category)
+
 # 下载设备上传文件模板
 @api_view(['GET'])
 def get_import_template(request):
@@ -76,25 +134,18 @@ def post_EquipmentData(request):
         return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
 
     insert_equipment_sql = '''insert into equipment(id, name, number, serial_number, fixed_asset_code,
-                                    fixed_asset_name, fixed_asset_category,specification,performance,is_allow_renew,
-                                    deposit_position, manufacturer, manufacture_date, custodian,
-                                    usage_description,dispose_suggestion, entry_date,
-                                    original_cost, estimate_life, net_salvage, create_time, update_time, 
-                                    equipment_state, is_delete)
+                                    fixed_asset_category, custodian, equipment_state, service_type,specification,
+                                    performance, assort_material,deposit_position, install_date, manage_type,manager,
+                                    application_specialist, manufacturer, manufacture_date, origin_place,
+                                    create_time, update_time, is_delete)
                               values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                                                            %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+                                                                %s, %s, %s, %s, %s, %s, %s, %s)'''
 
     update_equipment_sql = '''update equipment set name=%s,number=%s,serial_number=%s,fixed_asset_code=%s,
-                                    fixed_asset_name=%s, fixed_asset_category=%s,specification=%s,performance=%s,
-                                    is_allow_renew=%s, deposit_position=%s, manufacturer=%s, manufacture_date=%s, 
-                                    custodian=%s, usage_description=%s,dispose_suggestion=%s, entry_date=%s,
-                                    original_cost=%s, estimate_life=%s, net_salvage=%s,update_time=%s,equipment_state=%s where id=%s'''
-
-    insert_depreciation_sql = '''insert into equipment_depreciation_record(method, periods, depreciated_total,
-                                            net_value, net_amount, depreciate_date, create_time, equipment_id)
-                                  select %s, %s, %s, %s, %s, %s, %s, %s
-                                  where not exists(select equipment_id from equipment_depreciation_record
-                                        where equipment_id=%s and periods=%s)'''
+                                    fixed_asset_category=%s,custodian=%s,equipment_state=%s,service_type=%s,
+                                    specification=%s,performance=%s,assort_material=%s,deposit_position=%s,
+                                    install_date=%s,manage_type=%s,manager=%s,application_specialist=%s,
+                                    manufacturer=%s, manufacture_date=%s,origin_place=%s,update_time=%s where id=%s'''
 
     insert_calibration_sql = '''insert into equipment_calibration_info(calibration_time, recalibration_time, due_date, 
                                         certificate, certificate_year, create_time, update_time, equipment_id, state)
@@ -111,7 +162,6 @@ def post_EquipmentData(request):
     try:
         insert_equipment_ls = []
         update_equipment_ls = []
-        depreciation_ls = []
         calibration_ls = []
         update_calibration_ls = []
         now_ts = datetime.datetime.now()
@@ -120,115 +170,79 @@ def post_EquipmentData(request):
             lineNo = count + 1
             equipment_id = data.get('id')
             if not equipment_id:
-                return VIEW_FAIL(msg='设备ID不能为空, 空值所在行: {}'.format(lineNo))
+                return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
             name = data.get('name')
-            if not name:
-                return VIEW_FAIL(msg='设备名称不能为空, 空值所在行: {}'.format(lineNo))
             number = data.get('number')
             serial_number = data.get('serial_number')
-            # if not serial_number:
-            #     serial_number = ''
-            #     return VIEW_FAIL(msg='序列号不能为空, 空值所在行: {}'.format(lineNo))
-            serial_number = serial_number
             fixed_asset_code = data.get('fixed_asset_code')
-            # if not fixed_asset_code:
-            #     fixed_asset_code = ''
-            #     return VIEW_FAIL(msg='固定资产编码不能为空, 空值所在行: {}'.format(lineNo))
-            fixed_asset_name = data.get('fixed_asset_name')
-            # if not fixed_asset_name:
-            #     fixed_asset_name = ''
-            #     return VIEW_FAIL(msg='固定资产名称不能为空, 空值所在行: {}'.format(lineNo))
             fixed_asset_category = data.get('fixed_asset_category')
+            custodian = data.get('custodian')
+            equipment_state = data.get('equipment_state')
+            service_type = data.get('service_type')
             specification = data.get('specification')
-            # if not specification:
-            #     specification = ''
-            #     return VIEW_FAIL(msg='规格型号描述不能为空, 空值所在行: {}'.format(lineNo))
             performance = data.get('performance')
-            is_allow_renew = data.get('is_allow_renew')
+            assort_material = data.get('assort_material')
             deposit_position = data.get('deposit_position')
-            if not deposit_position:
-                return VIEW_FAIL(msg='存放地点不能为空, 空值所在行: {}'.format(lineNo))
+            install_date = data.get('install_date')
+            manage_type = data.get('manage_type')
+            manager = data.get('manager')
+            application_specialist = data.get('application_specialist')
             manufacturer = data.get('manufacturer')
             manufacture_date = data.get('manufacture_date')
-            custodian = data.get('custodian')
-            # if not custodian:
-            #     custodian = ''
-            #     return VIEW_FAIL(msg='保管人不能为空, 空值所在行: {}'.format(lineNo))
-            usage_description = data.get('usage_description')
-            dispose_suggestion = data.get('dispose_suggestion')
-            entry_date = data.get('entry_date')
-            original_cost = data.get('original_cost')
-            estimate_life = data.get('estimate_life')
-            net_salvage = data.get('net_salvage')
-            equipment_state = data.get('equipment_state')
+            origin_place = data.get('origin_place')
 
             existqs = Equipment.objects.filter(id=equipment_id, is_delete=False)  # 判断设备是否存在，存在则更新
             if existqs:
-                update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_name,
-                                  fixed_asset_category, specification, performance, is_allow_renew, deposit_position,
-                                  manufacturer, manufacture_date, custodian, usage_description, dispose_suggestion,
-                                  entry_date, original_cost, estimate_life, net_salvage, now_ts, equipment_state, equipment_id)
+                update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_category,
+                                         custodian, equipment_state, service_type, specification, performance,
+                                         assort_material, deposit_position, install_date, manage_type, manager,
+                                         application_specialist, manufacturer, manufacture_date, origin_place,
+                                         now_ts, equipment_id)
                 update_equipment_ls.append(update_equipment_args)
             else:
-                insert_equipment_args = (equipment_id, name, number, serial_number, fixed_asset_code, fixed_asset_name,
-                                  fixed_asset_category, specification, performance, is_allow_renew, deposit_position,
-                                  manufacturer, manufacture_date, custodian, usage_description, dispose_suggestion,
-                                  entry_date, original_cost, estimate_life, net_salvage, now_ts, now_ts, equipment_state, False)
+                insert_equipment_args = (equipment_id, name, number, serial_number, fixed_asset_code,
+                                         fixed_asset_category, custodian, equipment_state, service_type,
+                                         specification, performance, assort_material, deposit_position, install_date,
+                                         manage_type, manager, application_specialist, manufacturer, manufacture_date,
+                                         origin_place, now_ts, now_ts, False)
                 insert_equipment_ls.append(insert_equipment_args)
 
-            method = data.get('method')
-            if method:
-                periods = data.get('periods')
-                depreciated_total = data.get('depreciated_total')
-                net_value = data.get('net_value')
-                net_amount = data.get('net_amount')
-                depreciate_date = data.get('depreciate_date')
-                depreciation_args = (method, periods, depreciated_total, net_value, net_amount,
-                                     depreciate_date, now_ts, equipment_id, equipment_id, periods)
-                depreciation_ls.append(depreciation_args)
 
-            calibration_time = data.get('calibration_time')
-            if calibration_time:
-                recalibration_time = data.get('recalibration_time')
-                due_date = data.get('due_date')
-                certificate = data.get('certificate', '')
-                if not certificate:
-                    certificate = ''
-                certificate_year = data.get('certificate_year')
-                try:
-                    due_date = str(int(due_date))
-                    calibration_state = '校验完成'
-                except:
-                    calibration_state = '待送检'
-                calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
-                if calibration_qs:
-                    update_calibration_args = (calibration_time, recalibration_time, due_date, certificate,
-                                               certificate_year, now_ts, calibration_state, equipment_id)
-                    update_calibration_ls.append(update_calibration_args)
-                else:
-                    calibration_args = (calibration_time, recalibration_time, due_date, certificate, certificate_year,
-                                        now_ts, now_ts, equipment_id, calibration_state)
-                    calibration_ls.append(calibration_args)
+            # calibration_time = data.get('calibration_time')
+            # if calibration_time:
+            #     recalibration_time = data.get('recalibration_time')
+            #     due_date = data.get('due_date')
+            #     certificate = data.get('certificate', '')
+            #     if not certificate:
+            #         certificate = ''
+            #     certificate_year = data.get('certificate_year')
+            #     try:
+            #         due_date = str(int(due_date))
+            #         calibration_state = '校验完成'
+            #     except:
+            #         calibration_state = '待送检'
+            #     calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
+            #     if calibration_qs:
+            #         update_calibration_args = (calibration_time, recalibration_time, due_date, certificate,
+            #                                    certificate_year, now_ts, calibration_state, equipment_id)
+            #         update_calibration_ls.append(update_calibration_args)
+            #     else:
+            #         calibration_args = (calibration_time, recalibration_time, due_date, certificate, certificate_year,
+            #                             now_ts, now_ts, equipment_id, calibration_state)
+            #         calibration_ls.append(calibration_args)
 
             if len(insert_equipment_ls) + len(update_equipment_ls) >= 10:
                 execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
                 execute_batch_sql(update_equipment_sql, update_equipment_ls)
-                execute_batch_sql(insert_depreciation_sql, depreciation_ls)
-                execute_batch_sql(insert_calibration_sql, calibration_ls)
-                execute_batch_sql(update_calibration_sql, update_calibration_ls)
                 insert_equipment_ls = []
                 update_equipment_ls = []
-                depreciation_ls = []
-                calibration_ls = []
-                update_calibration_ls = []
 
         if len(insert_equipment_ls) + len(update_equipment_ls) > 0:
             execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
             execute_batch_sql(update_equipment_sql, update_equipment_ls)
-            execute_batch_sql(insert_depreciation_sql, depreciation_ls)
-            execute_batch_sql(insert_calibration_sql, calibration_ls)
-            execute_batch_sql(update_calibration_sql, update_calibration_ls)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         logger.error('设备信息插入数据库失败, error:{}'.format(str(e)))
         error_code = e.args[0]
         if error_code == 1062:
@@ -270,10 +284,13 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
         search = request.GET.get('search', '')
         if search:
-            queryset = queryset.filter(Q(id=search) | Q(name__contains=search) | Q(fixed_asset_name__contains=search))
+            queryset = queryset.filter(Q(id=search) | Q(name__contains=search))
         equipment_state = request.GET.get('equipment_state')
         if equipment_state:
             queryset = queryset.filter(equipment_state=equipment_state)
+        fixed_asset_category = request.GET.get('fixed_asset_category')
+        if fixed_asset_category:
+            queryset = queryset.filter(fixed_asset_category=fixed_asset_category)
         calibration_state = request.GET.get('calibration_state')
         if calibration_state:
             calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
@@ -467,6 +484,9 @@ def get_borrow_time_limit(equipment_id):
     last_borrow_end_time = None
     if brrow_qs:
         last_borrow_end_time = brrow_qs.first().end_time
+        last_actual_end_time = brrow_qs.first().actual_end_time
+        if last_actual_end_time:
+            last_borrow_end_time = last_actual_end_time
     return {'last_borrow_end_time': last_borrow_end_time, 'allow_borrow_days': allow_borrow_days}
 
 
@@ -478,6 +498,20 @@ class BorrowListGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        req_user = request.user
+        user_roles = req_user.roles
+        if isinstance(user_roles, str):
+            user_roles = eval(user_roles)
+        user_roles = [item['name'] for item in user_roles]
+        if not user_roles:
+            user_roles = ['standardUser']
+        if 'developer' in user_roles:
+            pass
+        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
+            queryset = queryset.filter(user=req_user)
+        elif 'sectionManager' in user_roles:
+            section_id = req_user.section_id
+            queryset = queryset.filter(user__section_id=section_id)
         equipment_id = request.GET.get('equipment', '')
         if equipment_id:
             queryset = queryset.filter(equipment_id=equipment_id)  # 精确查询
@@ -640,6 +674,10 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         old_is_borrow = instance.is_borrow
+        old_confirm_state = instance.return_confirm_state
+        per_hour_price = instance.per_hour_price
+        equipment_id = instance.equipment_id
+        equipment_obj = Equipment.objects.filter(id=equipment_id)
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
@@ -649,9 +687,55 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
         data.update({'expect_usage_time': expect_usage_time})
         is_borrow = data.get('is_borrow')
         if is_borrow is True and old_is_borrow is False:
-            Equipment.objects.filter(id=instance.equipment.id).update(equipment_state=2)
-        serializer.validated_data.update(data)
-        self.perform_update(serializer)
+            if Equipment.objects.get(id=equipment_id).equipment_state == 2:
+                raise serializers.ValidationError('该设备已借出，请先确认设备状态')
+            Equipment.objects.filter(id=equipment_id).update(equipment_state=2)
+            start_time = datetime.datetime.now()
+            end_time = calculate_end_time(start_time, expect_usage_time)
+            data.update({'start_time': start_time})
+            data.update({'end_time': end_time})
+        return_confirm_state = data.get('return_confirm_state')
+        return_position = data.get('return_position')
+        if return_confirm_state is not None and old_confirm_state is None:
+            data.update({'is_return': 2})
+            actual_end_time = data.get('actual_end_time')
+            actual_usage_time = calculate_datediff(start_time, actual_end_time)
+            data.update({'actual_usage_time': actual_usage_time})
+            if per_hour_price:
+                total_amount = round((actual_usage_time * float(per_hour_price)), 2)
+                data.update({'total_amount': total_amount})
+            if return_confirm_state == '正常':
+                equipment_state = 1
+            elif return_confirm_state == '损坏':
+                equipment_state = 3
+            else:
+                raise serializers.ValidationError('确认结果不能为空')
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    # 更新设备状态和位置
+                    equipment_obj.update(equipment_state=equipment_state,
+                                         deposit_position=return_position,
+                                         update_time=datetime.datetime.now())
+                    serializer.validated_data.update(data)
+                    self.perform_update(serializer)
+
+                    if return_confirm_state == '正常':
+                        # TODO 通知下一个预约用户可借用了
+                        next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=actual_end_time,
+                                                                            equipment_id=equipment_id,
+                                                                            is_borrow=False, is_delete=False,
+                                                                            is_approval=1).order_by('id')
+                        if next_user_qs:
+                            next_user = next_user_qs.first().user
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('归还信息存储失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('归还信息存储失败')
+        else:
+            serializer.validated_data.update(data)
+            self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):
             # If 'prefetch_related' has been applied to a queryset, we need to
@@ -680,7 +764,7 @@ def get_AllowBorrowTime(request):
     if not equipment_qs:
         return VIEW_FAIL(msg='找不到该设备')
     equipment_state = equipment_qs.first().equipment_state
-    if equipment_state != 1:
+    if equipment_state not in [1, 2]:
         return VIEW_FAIL('设备当前状态为{}, 暂时无法借用'.format(equipment_qs.first().get_equipment_state_display()))
     borrow_time_limit = get_borrow_time_limit(equipment_id)
     last_borrow_end_time = borrow_time_limit['last_borrow_end_time']
@@ -881,11 +965,11 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
         equipment = data.get('equipment')
         if evaluation_result:
             if evaluation_result == '故障':
-                Equipment.objects.filter(id=equipment.id).update(equipment_state=5)
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=3)
             elif evaluation_result == '闲置':
-                Equipment.objects.filter(id=equipment.id).update(equipment_state=6)
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=4)
             elif evaluation_result == '报废':
-                Equipment.objects.filter(id=equipment.id).update(equipment_state=7)
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=6)
         serializer.validated_data.update(data)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)

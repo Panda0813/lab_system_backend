@@ -128,7 +128,7 @@ class OperationLog(models.Model):
 
 
 class Role(models.Model):
-    code = models.CharField(verbose_name='角色编码', max_length=50)
+    role_code = models.CharField(verbose_name='角色编码', max_length=50)
     name = models.CharField(verbose_name='角色名称', max_length=50)
     routes = models.TextField(verbose_name='角色权限', null=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)

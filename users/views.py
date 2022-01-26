@@ -39,6 +39,30 @@ class RoleListGeneric(generics.ListCreateAPIView):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        req_user = request.user
+        user_roles = req_user.roles
+        if isinstance(user_roles, str):
+            user_roles = eval(user_roles)
+        user_roles = [item['name'] for item in user_roles]
+        if not user_roles:
+            user_roles = ['standardUser']
+        if 'developer' not in user_roles and 'labManager' in user_roles:
+            queryset = queryset.exclude(role_code='developer')
+        elif 'developer' in user_roles:
+            pass
+        else:
+            queryset = QueryDict([])
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class RoleDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     queryset = Role.objects.all()
@@ -188,6 +212,20 @@ class UserListGeneric(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        req_user = request.user
+        user_roles = req_user.roles
+        if isinstance(user_roles, str):
+            user_roles = eval(user_roles)
+        user_roles = [item['name'] for item in user_roles]
+        if not user_roles:
+            user_roles = ['standardUser']
+        if 'developer' in user_roles:
+            pass
+        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
+            queryset = queryset.filter(id=req_user.id)
+        elif 'sectionManager' in user_roles:
+            section_id = req_user.section_id
+            queryset = queryset.filter(section_id=section_id)
         employee_no = request.GET.get('employee_no')
         if employee_no:
             queryset = queryset.filter(employee_no=employee_no)  # 精确查询

@@ -29,7 +29,7 @@ class GroupSerializer(serializers.ModelSerializer):
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
-        fields = ('id', 'name', 'code', 'routes')
+        fields = ('id', 'name', 'role_code', 'routes')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
@@ -38,7 +38,7 @@ class RoleSerializer(serializers.ModelSerializer):
                     'required': '角色名称[name]为必填项'
                 }
             },
-            'code': {
+            'role_code': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
                 'error_messages': {
                     'blank': '角色编码[code]不能为空',

@@ -29,52 +29,138 @@ class Project(models.Model):
         return 'delete success'
 
 
+# class Equipment(models.Model):
+#     FIXED_ASSET_CATEGORYS = (
+#         (1, 'APT MB & SLT System'),
+#         (2, 'ATE Tester'),
+#         (3, 'Device Test Tooling'),
+#         (4, 'Facility Equipment & Tool'),
+#         (5, 'Inspection & Rework'),
+#         (6, 'Measurement & Intrumentation'),
+#         (7, 'Other Tool, Jig & Kit'),
+#         (8, 'Probe, Tip & Assembly'),
+#         (9, 'Reliability & Environment'),
+#         (10, 'Tester Cell Machine')
+#     )
+#     EQUIPMENT_STATES = (
+#         (1, '待用'),
+#         (2, '使用中'),
+#         # (3, '已送检'),
+#         (4, '代管'),
+#         (5, '维护中'),
+#         (6, '闲置'),
+#         (7, '报废')
+#     )
+#
+#     id = models.CharField(max_length=60, verbose_name='设备仪器ID', primary_key=True)
+#     name = models.CharField(max_length=100, verbose_name='设备名称')
+#     number = models.IntegerField(verbose_name='资产数量', default=1)
+#     serial_number = models.CharField(max_length=50, verbose_name='序列号', null=True, blank=True)
+#     fixed_asset_code = models.CharField(max_length=50, verbose_name='固定资产编码', null=True, blank=True)
+#     fixed_asset_name = models.CharField(max_length=100, verbose_name='固定资产名称', null=True, blank=True)
+#     fixed_asset_category = models.IntegerField(choices=FIXED_ASSET_CATEGORYS, default=3, verbose_name='固定资产类别')
+#     specification = models.CharField(max_length=100, verbose_name='规格型号描述', null=True, blank=True)
+#     performance = models.TextField(verbose_name='主要性能', null=True, blank=True)
+#     purpose = models.CharField(max_length=200, verbose_name='用途', null=True, blank=True)
+#     default_borrow_hours = models.IntegerField(verbose_name='默认可借用时长(H)', null=True, blank=True)
+#     allow_borrow_days = models.IntegerField(verbose_name='最长可借用天数(Day)', null=True, blank=True)
+#     per_hour_price = models.DecimalField(verbose_name='每小时使用单价', max_digits=10, decimal_places=2, null=True, blank=True)  # 预留
+#     is_allow_renew = models.BooleanField(verbose_name='能否续借', default=False)
+#     deposit_position = models.CharField(max_length=100, verbose_name='存放地点')
+#     manufacturer = models.CharField(max_length=50, verbose_name='制造商', null=True, blank=True)
+#     manufacture_date = models.CharField(max_length=20, verbose_name='制造日期', null=True, blank=True)
+#     custodian = models.CharField(max_length=20, verbose_name='保管人', null=True, blank=True)
+#     equipment_state = models.IntegerField(choices=EQUIPMENT_STATES, default=1, verbose_name='设备状态')
+#     usage_description = models.CharField(max_length=200, verbose_name='使用/故障情况说明', null=True, blank=True)
+#     dispose_suggestion = models.CharField(max_length=200, verbose_name='处理建议', null=True, blank=True)
+#     application_specialist = models.CharField(max_length=60, verbose_name='应用技术支持专家', null=True, blank=True)
+#     user_manual = models.CharField(max_length=100, verbose_name='使用手册地址', null=True, blank=True)
+#     license = models.CharField(max_length=100, verbose_name='配套软件与许可证', null=True, blank=True)
+#     purchase_date = models.CharField(max_length=20, verbose_name='采购日期', null=True, blank=True)
+#     purchase_cost = models.DecimalField(verbose_name='采购成本', max_digits=16, decimal_places=2, null=True, blank=True)
+#     entry_date = models.CharField(max_length=20, verbose_name='财务入账日期', null=True, blank=True)
+#     original_cost = models.DecimalField(verbose_name='资产原值', max_digits=16, decimal_places=2, null=True, blank=True)
+#     estimate_life = models.IntegerField(verbose_name='预计使用期间数', null=True, blank=True)
+#     net_salvage = models.DecimalField(verbose_name='预计净残值', max_digits=16, decimal_places=2, null=True, blank=True)
+#     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
+#     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
+#     remarks = models.TextField(verbose_name='备注', null=True)
+#     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
+#
+#     # objects = QuerySetManage()
+#
+#     class Meta:
+#         db_table = 'equipment'
+#         verbose_name = '设备基础数据表'
+#         verbose_name_plural = verbose_name
+#
+#     def __str__(self):
+#         return self.id
+#
+#     def delete(self, using=None, keep_parents=False):
+#         self.is_delete = True
+#         self.save()
+#         return 'delete success'
+
+
 class Equipment(models.Model):
     FIXED_ASSET_CATEGORYS = (
-        (1, '机器设备'),
-        (2, '电子设备'),
-        (3, '其他设备')
+        (1, 'APT MB & SLT System'),
+        (2, 'ATE Tester'),
+        (3, 'Device Test Tooling'),
+        (4, 'Facility Equipment & Tool'),
+        (5, 'Inspection & Rework'),
+        (6, 'Measurement & Intrumentation'),
+        (7, 'Other Tool, Jig & Kit'),
+        (8, 'Probe, Tip & Assembly'),
+        (9, 'Reliability & Environment'),
+        (10, 'Tester Cell Machine')
     )
     EQUIPMENT_STATES = (
-        (1, '可借用'),
-        (2, '已借出'),
-        (3, '已送检'),
-        (4, '已调拨'),
-        (5, '故障'),
-        (6, '闲置'),
-        (7, '报废')
+        (1, '待用'),
+        (2, '使用中'),
+        (3, '维护中'),
+        (4, '闲置'),
+        (5, '代管'),
+        (6, '报废')
+    )
+    SERVICE_TYPES = (
+        (1, '不可用'),
+        (2, '领用'),
+        (3, '随用'),
+        (4, '预约'),
+        (5, '专用')
+    )
+    MANAGE_TYPES = (
+        (1, 'PM'),
+        (2, 'Check'),
+        (3, 'Inspection')
     )
 
     id = models.CharField(max_length=60, verbose_name='设备仪器ID', primary_key=True)
-    name = models.CharField(max_length=100, verbose_name='设备名称')
-    number = models.IntegerField(verbose_name='资产数量', default=1)
+    name = models.CharField(max_length=100, verbose_name='设备名称', null=True)
+    number = models.IntegerField(verbose_name='数量', default=1)
     serial_number = models.CharField(max_length=50, verbose_name='序列号', null=True, blank=True)
-    fixed_asset_code = models.CharField(max_length=50, verbose_name='固定资产编码', null=True, blank=True)
-    fixed_asset_name = models.CharField(max_length=100, verbose_name='固定资产名称', null=True, blank=True)
-    fixed_asset_category = models.IntegerField(choices=FIXED_ASSET_CATEGORYS, default=3, verbose_name='固定资产类别')
-    specification = models.CharField(max_length=100, verbose_name='规格型号描述', null=True, blank=True)
-    performance = models.TextField(verbose_name='主要性能', null=True, blank=True)
-    purpose = models.CharField(max_length=200, verbose_name='用途', null=True, blank=True)
-    default_borrow_hours = models.IntegerField(verbose_name='默认可借用时长(H)', null=True, blank=True)
+    fixed_asset_code = models.CharField(max_length=50, verbose_name='固定资产编号', null=True, blank=True)
+    fixed_asset_category = models.IntegerField(choices=FIXED_ASSET_CATEGORYS, null=True, verbose_name='类别')
+    custodian = models.CharField(max_length=20, verbose_name='固定资产保管人', null=True, blank=True)
+    equipment_state = models.IntegerField(choices=EQUIPMENT_STATES, null=True, verbose_name='设备状态')
+    service_type = models.IntegerField(choices=SERVICE_TYPES, null=True, verbose_name='管理方式')
+    specification = models.TextField(verbose_name='技术指标', null=True, blank=True)
+    performance = models.TextField(verbose_name='主要功能和应用领域', null=True, blank=True)
+    assort_material = models.TextField(verbose_name='配套设备器材', null=True, blank=True)
     allow_borrow_days = models.IntegerField(verbose_name='最长可借用天数(Day)', null=True, blank=True)
     per_hour_price = models.DecimalField(verbose_name='每小时使用单价', max_digits=10, decimal_places=2, null=True, blank=True)  # 预留
-    is_allow_renew = models.BooleanField(verbose_name='能否续借', default=False)
-    deposit_position = models.CharField(max_length=100, verbose_name='存放地点')
+    deposit_position = models.CharField(max_length=100, verbose_name='存放地点', null=True)
+    install_date = models.CharField(max_length=20, verbose_name='安装日期', null=True, blank=True)
+    manage_type = models.IntegerField(verbose_name='管理方式', choices=MANAGE_TYPES, null=True)
+    manager = models.CharField(max_length=20, verbose_name='管理人', null=True, blank=True)
+    application_specialist = models.CharField(max_length=100, verbose_name='应用技术专家', null=True, blank=True)
     manufacturer = models.CharField(max_length=50, verbose_name='制造商', null=True, blank=True)
-    manufacture_date = models.CharField(max_length=20, verbose_name='制造日期', null=True, blank=True)
-    custodian = models.CharField(max_length=20, verbose_name='保管人', null=True, blank=True)
-    equipment_state = models.IntegerField(choices=EQUIPMENT_STATES, default=1, verbose_name='设备状态')
-    usage_description = models.CharField(max_length=200, verbose_name='使用/故障情况说明', null=True, blank=True)
-    dispose_suggestion = models.CharField(max_length=200, verbose_name='处理建议', null=True, blank=True)
-    application_specialist = models.CharField(max_length=60, verbose_name='应用技术支持专家', null=True, blank=True)
+    manufacture_date = models.CharField(max_length=20, verbose_name='生产日期', null=True, blank=True)
+    origin_place = models.CharField(max_length=50, verbose_name='原产地', null=True, blank=True)
     user_manual = models.CharField(max_length=100, verbose_name='使用手册地址', null=True, blank=True)
     license = models.CharField(max_length=100, verbose_name='配套软件与许可证', null=True, blank=True)
-    purchase_date = models.CharField(max_length=20, verbose_name='采购日期', null=True, blank=True)
-    purchase_cost = models.DecimalField(verbose_name='采购成本', max_digits=16, decimal_places=2, null=True, blank=True)
-    entry_date = models.CharField(max_length=20, verbose_name='财务入账日期', null=True, blank=True)
-    original_cost = models.DecimalField(verbose_name='资产原值', max_digits=16, decimal_places=2, null=True, blank=True)
-    estimate_life = models.IntegerField(verbose_name='预计使用期间数', null=True, blank=True)
-    net_salvage = models.DecimalField(verbose_name='预计净残值', max_digits=16, decimal_places=2, null=True, blank=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
     remarks = models.TextField(verbose_name='备注', null=True)
@@ -140,6 +226,10 @@ class EquipmentBorrowRecord(models.Model):
         ('恢复中断', '恢复中断'),
         ('续借', '续借')
     )
+    CONFIRM_STATE = (
+        ('正常', '正常'),
+        ('损坏', '损坏')
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='借用人')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, verbose_name='项目')
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
@@ -150,7 +240,6 @@ class EquipmentBorrowRecord(models.Model):
     refuse_reason = models.CharField(max_length=100, verbose_name='拒绝原因', null=True)
     is_borrow = models.BooleanField(default=False, verbose_name='是否借用成功')
     remarks = models.TextField(verbose_name='备注', null=True)
-    is_return = models.IntegerField(default=0, verbose_name='是否已归还')  # 0 未归还，1 待确认，2 已归还
     is_interrupted = models.BooleanField(default=False, verbose_name='借用是否被中断')
     is_recovery_interrupt = models.BooleanField(default=False, verbose_name='是否已恢复中断')
     actual_end_time = models.DateTimeField(verbose_name='实际借用结束时间', null=True)
@@ -161,9 +250,12 @@ class EquipmentBorrowRecord(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='使用总计费', null=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
-    is_delete = models.BooleanField(default=False, verbose_name='是否删除')
     is_final_remind = models.BooleanField(default=False, verbose_name='是否已提醒临期')
     is_overtime_remind = models.BooleanField(default=False, verbose_name='是否已提醒超时')
+    is_return = models.IntegerField(default=0, verbose_name='是否已归还')  # 0 未归还，1 待确认，2 已归还
+    return_position = models.CharField(max_length=100, verbose_name='归还位置', null=True)
+    return_confirm_state = models.CharField(verbose_name='归还确认结果', max_length=20, choices=CONFIRM_STATE, null=True)
+    is_delete = models.BooleanField(default=False, verbose_name='是否删除')
 
     objects = QuerySetManage()
 
@@ -214,7 +306,7 @@ class EquipmentReturnRecord(models.Model):
     # positions = list(Equipment.objects.values('deposit_position').distinct())
     # RETURN_POSITION = tuple([(p['deposit_position'], p['deposit_position']) for p in positions])
 
-    borrow_record = models.ForeignKey(EquipmentBorrowRecord, on_delete=models.CASCADE, verbose_name='借用记录')
+    borrow_record = models.OneToOneField(EquipmentBorrowRecord, on_delete=models.CASCADE, verbose_name='借用记录')
     # TODO 后面正式环境申请归还时，已提交时间作为归还时间auto_now_add=True
     return_time = models.DateTimeField(verbose_name='归还时间')
     return_position = models.CharField(max_length=100, verbose_name='归还位置')
@@ -350,7 +442,9 @@ class EquipmentMaintenanceRecord(models.Model):
     down_time = models.DateTimeField(verbose_name='停机开始时间')
     up_time = models.DateTimeField(verbose_name='停机结束时间')
     maintenance_hours = models.DecimalField(verbose_name='维修耗时(H)', max_digits=6, decimal_places=2)
-    maintenance_user = models.CharField(verbose_name='维修人', max_length=50)
+    maintenance_user = models.CharField(verbose_name='响应者', max_length=50)
+    broken_part_code = models.CharField(verbose_name='坏板序列号', max_length=100, null=True)
+    broken_part_cost = models.CharField(verbose_name='坏板委外维修费', max_length=50, null=True)
     remarks = models.TextField(verbose_name='备注', null=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)

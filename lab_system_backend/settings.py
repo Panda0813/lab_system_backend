@@ -55,11 +55,10 @@ AUTHENTICATION_BACKENDS = (
 JWT_AUTH = {
     # JWT响应处理器
     'JWT_RESPONSE_PAYLOAD_HANDLER': 'utils.jwt_handle.jwt_response_payload_handler',
-    # 'JWT_RESPONSE_PAYLOAD_ERROR_HANDLER': 'utils.jwt_handle.jwt_response_payload_error_handler',
     # JWT前缀
     'JWT_AUTH_HEADER_PREFIX': 'JWT',
     # 过期时间
-    'JWT_EXPIRATION_DELTA': datetime.timedelta(days=1)
+    'JWT_EXPIRATION_DELTA': datetime.timedelta(days=5)
 }
 
 TOKEN_EXPIRE_DAYS = 3

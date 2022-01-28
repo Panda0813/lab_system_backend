@@ -3,7 +3,7 @@ from django.db import connection, close_old_connections, transaction
 
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord, ExtendAttribute
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
-    EquipmentCalibrationInfo, EquipmentMaintenanceRecord
+    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo
 
 import logging
 
@@ -348,5 +348,30 @@ class OperateMaintenanceSerializer(serializers.ModelSerializer):
             },
             'equipment': {
                 'read_only': True
+            }
+        }
+
+
+class MaintainInfoSerializer(serializers.ModelSerializer):
+    due_date = serializers.ReadOnlyField()
+    pm_q1 = serializers.ReadOnlyField()
+    pm_q2 = serializers.ReadOnlyField()
+    pm_q3 = serializers.ReadOnlyField()
+    pm_q4 = serializers.ReadOnlyField()
+
+    class Meta:
+        model = EquipmentMaintainInfo
+        fields = ('id', 'equipment', 'equipment_name', 'equipment_state', 'calibration_time', 'recalibration_time',
+                  'due_date', 'pm_q1', 'pm_q2', 'pm_q3', 'pm_q4', 'remarks')
+        extra_kwargs = {
+            'equipment': {
+                'label': '设备',
+                'required': True,
+                'validators': [validators.UniqueValidator(queryset=EquipmentCalibrationInfo.objects.all(),
+                                                          message='该设备已存在校验信息')],
+                'error_messages': {
+                    'blank': '设备[equipment]不能为空',
+                    'required': '设备[equipment]为必填项'
+                }
             }
         }

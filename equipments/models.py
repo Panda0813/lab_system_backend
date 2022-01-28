@@ -496,3 +496,17 @@ class EquipmentMaintainInfo(models.Model):
         db_table = 'equipment_maintain_info'
         verbose_name = '设备定期维护表'
         verbose_name_plural = verbose_name
+
+    @property
+    def equipment_name(self):
+        if self.equipment:
+            return self.equipment.name
+        else:
+            return None
+
+    @property
+    def equipment_state(self):
+        if self.equipment:
+            return self.equipment.equipment_state
+        else:
+            return None

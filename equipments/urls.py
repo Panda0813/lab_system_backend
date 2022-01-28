@@ -25,4 +25,7 @@ urlpatterns = [
     url(r'^maintenance$', views.MaintenanceGeneric.as_view()),
     url(r'^maintenance/(?P<pk>[0-9]+)$', views.OperateMaintenanceGeneric.as_view()),
     url(r'^upload-calibration$', views.post_calibration),
+    url(r'^maintain$', views.MaintainInfoGeneric.as_view()),
+    url(r'^maintain/(?P<pk>[0-9]+)$', views.OperateMaintainInfoGeneric.as_view()),
+    url(r'^upload-maintain$', views.post_maintain),
 ]

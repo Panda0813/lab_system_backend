@@ -210,6 +210,30 @@ def analysis_calibration(datas):
     return datas
 
 
+maintain_columns_map = {
+    'ID': 'equipment_id',
+    '校准日期': 'calibration_time',
+    '再校准日期': 'recalibration_time'
+}
+
+
+def analysis_maintain(datas):
+    if not datas:
+        return []
+    df = pd.DataFrame(datas)
+    df = df[list(maintain_columns_map.keys())]
+    df.rename(columns=maintain_columns_map, inplace=True)
+    df = df.replace({np.nan: None})
+    ndf = df.copy()
+    ndf['calibration_time'] = ndf['calibration_time'].apply(trans_float_ts, args=('%Y-%m-%d', '%Y-%m-%d'))
+    ndf['calibration_time'] = ndf['calibration_time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').date() if x else x)
+    ndf['recalibration_time'] = ndf['recalibration_time'].apply(trans_float_ts, args=('%Y-%m-%d', '%Y-%m-%d'))
+    ndf['recalibration_time'] = ndf['recalibration_time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').date() if x else x)
+    ndf = ndf.replace({np.nan: None})
+    datas = ndf.to_dict('records')
+    return datas
+
+
 def execute_batch_sql(sql, datas):
     if not datas:
         return None

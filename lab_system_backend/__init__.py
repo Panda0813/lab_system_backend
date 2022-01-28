@@ -13,7 +13,7 @@ def init_uniq():
 
 
 if platform.system() == "Windows":
-    # init_uniq()
+    init_uniq()
     pass
 else:
     import fcntl

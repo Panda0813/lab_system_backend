@@ -40,8 +40,10 @@ class CronTaskObj:
         #                            hour=self.cron_hour, **trigger_args)
         if id == '定期刷新校验到期日':
             minutes = 0.3
-        else:
+        elif id == '定期刷新维护到期日':
             minutes = 0.5
+        else:
+            minutes = 0.7
 
         self.scheduler.add_job(func, trigger='interval', id=id, args=args, kwargs=kwargs,
                                minutes=minutes, **trigger_args)

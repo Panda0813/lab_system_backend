@@ -17,15 +17,16 @@ from equipments.serializers import BorrowRecordSerializer, OperateBorrowRecordSe
 from equipments.serializers import ReturnApplySerializer, OperateReturnApplySerializer
 from equipments.serializers import BrokenInfoSerializer, OperateBrokenInfoSerializer
 from equipments.serializers import CalibrationInfoSerializer, OperateCalibrationSerializer
-from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSerializer
+from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSerializer, MaintainInfoSerializer
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
-    EquipmentCalibrationInfo, EquipmentMaintenanceRecord
-from equipments.ext_utils import analysis_equipment_data, create_excel_resp, analysis_calibration
+    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo
+from equipments.ext_utils import analysis_equipment_data, create_excel_resp, analysis_calibration, analysis_maintain
 from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS
 from utils.log_utils import set_create_log, set_update_log, set_delete_log, get_differ, save_operateLog
 from utils.pagination import MyPagePagination
-from utils.timedelta_utls import calculate_datediff, get_holiday, calculate_end_time, calculate_due_date
+from utils.timedelta_utls import calculate_datediff, get_holiday, calculate_end_time, calculate_due_date, \
+    calculate_recalibration_time, calculate_pm_time
 
 import re
 import datetime
@@ -93,7 +94,7 @@ def get_category(request):
         {'id': 9, 'name': 'Reliability & Environment'},
         {'id': 10, 'name': 'Tester Cell Machine'}]
     df1 = pd.DataFrame(categoryBase)
-    countqs = Equipment.objects.values('fixed_asset_category').annotate(count=Count('id')).all()
+    countqs = Equipment.objects.filter(is_delete=False).values('fixed_asset_category').annotate(count=Count('id')).all()
     if countqs:
         countqs = list(countqs)
         df2 = pd.DataFrame(countqs)
@@ -123,130 +124,110 @@ def get_upload_template(request):
 @api_view(['POST'])
 def post_EquipmentData(request):
     try:
-        file = request.FILES.get('file', '')
-        if not file:
-            return VIEW_FAIL(msg='上传文件不能为空')
-        current_path = os.path.dirname(__file__)
-        file_dir_path = os.path.join(current_path, 'temporydata')
-        if not os.path.exists(file_dir_path):
-            os.mkdir(file_dir_path)
-        file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Resource_Management_System_v1.xlsx')
-        with open(file_path, 'wb') as f:
-            for i in file.chunks():
-                f.write(i)
-    except Exception as e:
-        logger.error('解析文件出错, error:{}'.format(str(e)))
-        return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
+        try:
+            file = request.FILES.get('file', '')
+            if not file:
+                return VIEW_FAIL(msg='上传文件不能为空')
+            current_path = os.path.dirname(__file__)
+            file_dir_path = os.path.join(current_path, 'temporydata')
+            if not os.path.exists(file_dir_path):
+                os.mkdir(file_dir_path)
+            file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Resource_Management_System_v1.xlsx')
+            with open(file_path, 'wb') as f:
+                for i in file.chunks():
+                    f.write(i)
+        except Exception as e:
+            logger.error('解析文件出错, error:{}'.format(str(e)))
+            return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
 
-    insert_equipment_sql = '''insert into equipment(id, name, number, serial_number, fixed_asset_code,
-                                    fixed_asset_category, custodian, equipment_state, service_type,specification,
-                                    performance, assort_material,deposit_position, install_date, manage_type,manager,
-                                    application_specialist, manufacturer, manufacture_date, origin_place,
-                                    create_time, update_time, is_delete)
-                              values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                                                                %s, %s, %s, %s, %s, %s, %s, %s)'''
+        insert_equipment_sql = '''insert into equipment(id, name, number, serial_number, fixed_asset_code,
+                                        fixed_asset_category, custodian, equipment_state, service_type,specification,
+                                        performance, assort_material,deposit_position, install_date, manage_type,manager,
+                                        application_specialist, manufacturer, manufacture_date, origin_place,
+                                        create_time, update_time, is_delete)
+                                  values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                                                                    %s, %s, %s, %s, %s, %s, %s, %s)'''
 
-    update_equipment_sql = '''update equipment set name=%s,number=%s,serial_number=%s,fixed_asset_code=%s,
-                                    fixed_asset_category=%s,custodian=%s,equipment_state=%s,service_type=%s,
-                                    specification=%s,performance=%s,assort_material=%s,deposit_position=%s,
-                                    install_date=%s,manage_type=%s,manager=%s,application_specialist=%s,
-                                    manufacturer=%s, manufacture_date=%s,origin_place=%s,update_time=%s where id=%s'''
+        update_equipment_sql = '''update equipment set name=%s,number=%s,serial_number=%s,fixed_asset_code=%s,
+                                        fixed_asset_category=%s,custodian=%s,equipment_state=%s,service_type=%s,
+                                        specification=%s,performance=%s,assort_material=%s,deposit_position=%s,
+                                        install_date=%s,manage_type=%s,manager=%s,application_specialist=%s,
+                                        manufacturer=%s, manufacture_date=%s,origin_place=%s,update_time=%s where id=%s'''
 
-    # datas = req_dic.get('datas', [])
-    df = pd.read_excel(file_path, sheet_name='Sheet1')
-    datas = df.to_dict('records')
-    datas = analysis_equipment_data(datas)
-    count = 0
-    try:
-        insert_equipment_ls = []
-        update_equipment_ls = []
-        now_ts = datetime.datetime.now()
-        for data in datas:
-            count += 1
-            lineNo = count + 1
-            equipment_id = data.get('id')
-            if not equipment_id:
-                return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
-            name = data.get('name')
-            number = data.get('number')
-            serial_number = data.get('serial_number')
-            fixed_asset_code = data.get('fixed_asset_code')
-            fixed_asset_category = data.get('fixed_asset_category')
-            custodian = data.get('custodian')
-            equipment_state = data.get('equipment_state')
-            service_type = data.get('service_type')
-            specification = data.get('specification')
-            performance = data.get('performance')
-            assort_material = data.get('assort_material')
-            deposit_position = data.get('deposit_position')
-            install_date = data.get('install_date')
-            manage_type = data.get('manage_type')
-            manager = data.get('manager')
-            application_specialist = data.get('application_specialist')
-            manufacturer = data.get('manufacturer')
-            manufacture_date = data.get('manufacture_date')
-            origin_place = data.get('origin_place')
+        # datas = req_dic.get('datas', [])
+        df = pd.read_excel(file_path, sheet_name='Sheet1')
+        datas = df.to_dict('records')
+        datas = analysis_equipment_data(datas)
+        count = 0
+        try:
+            insert_equipment_ls = []
+            update_equipment_ls = []
+            now_ts = datetime.datetime.now()
+            for data in datas:
+                count += 1
+                lineNo = count + 1
+                equipment_id = data.get('id')
+                if not equipment_id:
+                    return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
+                name = data.get('name')
+                number = data.get('number')
+                serial_number = data.get('serial_number')
+                fixed_asset_code = data.get('fixed_asset_code')
+                fixed_asset_category = data.get('fixed_asset_category')
+                custodian = data.get('custodian')
+                equipment_state = data.get('equipment_state')
+                service_type = data.get('service_type')
+                specification = data.get('specification')
+                performance = data.get('performance')
+                assort_material = data.get('assort_material')
+                deposit_position = data.get('deposit_position')
+                install_date = data.get('install_date')
+                manage_type = data.get('manage_type')
+                manager = data.get('manager')
+                application_specialist = data.get('application_specialist')
+                manufacturer = data.get('manufacturer')
+                manufacture_date = data.get('manufacture_date')
+                origin_place = data.get('origin_place')
 
-            existqs = Equipment.objects.filter(id=equipment_id, is_delete=False)  # 判断设备是否存在，存在则更新
-            if existqs:
-                update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_category,
-                                         custodian, equipment_state, service_type, specification, performance,
-                                         assort_material, deposit_position, install_date, manage_type, manager,
-                                         application_specialist, manufacturer, manufacture_date, origin_place,
-                                         now_ts, equipment_id)
-                update_equipment_ls.append(update_equipment_args)
-            else:
-                insert_equipment_args = (equipment_id, name, number, serial_number, fixed_asset_code,
-                                         fixed_asset_category, custodian, equipment_state, service_type,
-                                         specification, performance, assort_material, deposit_position, install_date,
-                                         manage_type, manager, application_specialist, manufacturer, manufacture_date,
-                                         origin_place, now_ts, now_ts, False)
-                insert_equipment_ls.append(insert_equipment_args)
+                existqs = Equipment.objects.filter(id=equipment_id, is_delete=False)  # 判断设备是否存在，存在则更新
+                if existqs:
+                    update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_category,
+                                             custodian, equipment_state, service_type, specification, performance,
+                                             assort_material, deposit_position, install_date, manage_type, manager,
+                                             application_specialist, manufacturer, manufacture_date, origin_place,
+                                             now_ts, equipment_id)
+                    update_equipment_ls.append(update_equipment_args)
+                else:
+                    insert_equipment_args = (equipment_id, name, number, serial_number, fixed_asset_code,
+                                             fixed_asset_category, custodian, equipment_state, service_type,
+                                             specification, performance, assort_material, deposit_position, install_date,
+                                             manage_type, manager, application_specialist, manufacturer, manufacture_date,
+                                             origin_place, now_ts, now_ts, False)
+                    insert_equipment_ls.append(insert_equipment_args)
 
+                if len(insert_equipment_ls) + len(update_equipment_ls) >= 10:
+                    execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
+                    execute_batch_sql(update_equipment_sql, update_equipment_ls)
+                    insert_equipment_ls = []
+                    update_equipment_ls = []
 
-            # calibration_time = data.get('calibration_time')
-            # if calibration_time:
-            #     recalibration_time = data.get('recalibration_time')
-            #     due_date = data.get('due_date')
-            #     certificate = data.get('certificate', '')
-            #     if not certificate:
-            #         certificate = ''
-            #     certificate_year = data.get('certificate_year')
-            #     try:
-            #         due_date = str(int(due_date))
-            #         calibration_state = '校验完成'
-            #     except:
-            #         calibration_state = '待送检'
-            #     calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
-            #     if calibration_qs:
-            #         update_calibration_args = (calibration_time, recalibration_time, due_date, certificate,
-            #                                    certificate_year, now_ts, calibration_state, equipment_id)
-            #         update_calibration_ls.append(update_calibration_args)
-            #     else:
-            #         calibration_args = (calibration_time, recalibration_time, due_date, certificate, certificate_year,
-            #                             now_ts, now_ts, equipment_id, calibration_state)
-            #         calibration_ls.append(calibration_args)
-
-            if len(insert_equipment_ls) + len(update_equipment_ls) >= 10:
+            if len(insert_equipment_ls) + len(update_equipment_ls) > 0:
                 execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
                 execute_batch_sql(update_equipment_sql, update_equipment_ls)
-                insert_equipment_ls = []
-                update_equipment_ls = []
-
-        if len(insert_equipment_ls) + len(update_equipment_ls) > 0:
-            execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
-            execute_batch_sql(update_equipment_sql, update_equipment_ls)
+        except Exception as e:
+            logger.error('设备信息插入数据库失败, error:{}'.format(str(e)))
+            error_code = e.args[0]
+            if error_code == 1111:
+                msg = e.args[1]
+                error = e.args[1]
+            else:
+                msg = '保存失败'
+                error = str(e)
+            return VIEW_FAIL(msg=msg, data={'error': error})
+        return VIEW_SUCCESS(msg='导入成功')
     except Exception as e:
-        logger.error('设备信息插入数据库失败, error:{}'.format(str(e)))
-        error_code = e.args[0]
-        if error_code == 1111:
-            msg = e.args[1]
-            error = e.args[1]
-        else:
-            msg = '保存失败'
-            error = str(e)
-        return VIEW_FAIL(msg=msg, data={'error': error})
-    return VIEW_SUCCESS()
+        logger.error('设备信息导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='设备信息导入失败', data={'error': str(e)})
 
 
 # 获取已存在的存放地点
@@ -284,6 +265,11 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
             calibration_qs = [q['equipment_id'] for q in calibration_qs]
             queryset = queryset.exclude(id__in=calibration_qs)
+        maintain_tag = request.GET.get('maintain_tag')
+        if maintain_tag:
+            maintain_qs = EquipmentMaintainInfo.objects.all().values('equipment_id')
+            maintain_qs = [q['equipment_id'] for q in maintain_qs]
+            queryset = queryset.exclude(id__in=maintain_qs)
         # fuzzy_params = {}
         # fuzzy_params['name'] = request.GET.get('name', '')
         # fuzzy_params['fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
@@ -992,91 +978,94 @@ class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
 @api_view(['POST'])
 def post_calibration(request):
     try:
-        file = request.FILES.get('file', '')
-        if not file:
-            return VIEW_FAIL(msg='上传文件不能为空')
-        current_path = os.path.dirname(__file__)
-        file_dir_path = os.path.join(current_path, 'temporydata')
-        if not os.path.exists(file_dir_path):
-            os.mkdir(file_dir_path)
-        file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Calibration.xlsx')
-        with open(file_path, 'wb') as f:
-            for i in file.chunks():
-                f.write(i)
-    except Exception as e:
-        logger.error('解析文件出错, error:{}'.format(str(e)))
-        return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
+        try:
+            file = request.FILES.get('file', '')
+            if not file:
+                return VIEW_FAIL(msg='上传文件不能为空')
+            current_path = os.path.dirname(__file__)
+            file_dir_path = os.path.join(current_path, 'temporydata')
+            if not os.path.exists(file_dir_path):
+                os.mkdir(file_dir_path)
+            file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Calibration.xlsx')
+            with open(file_path, 'wb') as f:
+                for i in file.chunks():
+                    f.write(i)
+        except Exception as e:
+            logger.error('解析文件出错, error:{}'.format(str(e)))
+            return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
 
-    insert_calibration_sql = '''insert into equipment_calibration_info(specification, environment, calibration_cycle,
-                                                calibration_time, recalibration_time, due_date, 
-                                                create_time, update_time, equipment_id, state)
-                                  values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+        insert_calibration_sql = '''insert into equipment_calibration_info(specification, environment, calibration_cycle,
+                                                    calibration_time, recalibration_time, due_date, 
+                                                    create_time, update_time, equipment_id, state)
+                                      values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
 
-    update_calibration_sql = '''update equipment_calibration_info set specification=%s,environment=%s,
-                                        calibration_cycle=%s,calibration_time=%s,recalibration_time=%s,
-                                        due_date=%s,update_time=%s,state=%s where equipment_id=%s'''
-    df = pd.read_excel(file_path, sheet_name='Sheet1')
-    datas = df.to_dict('records')
-    datas = analysis_calibration(datas)
-    count = 0
-    try:
-        insert_calibration_ls = []
-        update_calibration_ls = []
-        now_ts = datetime.datetime.now()
-        for data in datas:
-            count += 1
-            lineNo = count + 1
-            equipment_id = data.get('equipment_id')
-            if not equipment_id:
-                return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
-            specification = data.get('specification')
-            environment = data.get('environment')
-            calibration_cycle = data.get('calibration_cycle')
-            calibration_time = data.get('calibration_time')
-            if calibration_cycle and calibration_time:
-                recalibration_time = \
-                    calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
-                due_date = calculate_due_date(recalibration_time)
-                try:
-                    due_date = str(int(due_date))
-                    calibration_state = '校验完成'
-                except:
-                    calibration_state = '待送检'
-            else:
-                recalibration_time = None
-                due_date = None
-                calibration_state = None
-            calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
-            if calibration_qs:
-                update_calibration_args = (specification, environment, calibration_cycle, calibration_time,
-                                           recalibration_time, due_date, now_ts, calibration_state, equipment_id)
-                update_calibration_ls.append(update_calibration_args)
-            else:
-                insert_calibration_args = (specification, environment, calibration_cycle,
-                                           calibration_time, recalibration_time, due_date,
-                                           now_ts, now_ts, equipment_id, calibration_state)
-                insert_calibration_ls.append(insert_calibration_args)
+        update_calibration_sql = '''update equipment_calibration_info set specification=%s,environment=%s,
+                                            calibration_cycle=%s,calibration_time=%s,recalibration_time=%s,
+                                            due_date=%s,update_time=%s,state=%s where equipment_id=%s'''
+        df = pd.read_excel(file_path, sheet_name='Sheet1')
+        datas = df.to_dict('records')
+        datas = analysis_calibration(datas)
+        count = 0
+        try:
+            insert_calibration_ls = []
+            update_calibration_ls = []
+            now_ts = datetime.datetime.now()
+            for data in datas:
+                count += 1
+                lineNo = count + 1
+                equipment_id = data.get('equipment_id')
+                if not equipment_id:
+                    return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
+                specification = data.get('specification')
+                environment = data.get('environment')
+                calibration_cycle = data.get('calibration_cycle')
+                calibration_time = data.get('calibration_time')
+                if calibration_cycle and calibration_time:
+                    recalibration_time = calculate_recalibration_time(calibration_time, calibration_cycle)
+                    due_date = calculate_due_date(recalibration_time, 'calibration')
+                    try:
+                        due_date = str(int(due_date))
+                        calibration_state = '校验完成'
+                    except:
+                        calibration_state = '待送检'
+                else:
+                    recalibration_time = None
+                    due_date = None
+                    calibration_state = None
+                calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
+                if calibration_qs:
+                    update_calibration_args = (specification, environment, calibration_cycle, calibration_time,
+                                               recalibration_time, due_date, now_ts, calibration_state, equipment_id)
+                    update_calibration_ls.append(update_calibration_args)
+                else:
+                    insert_calibration_args = (specification, environment, calibration_cycle,
+                                               calibration_time, recalibration_time, due_date,
+                                               now_ts, now_ts, equipment_id, calibration_state)
+                    insert_calibration_ls.append(insert_calibration_args)
 
-            if len(insert_calibration_ls) + len(update_calibration_ls) >= 10:
+                if len(insert_calibration_ls) + len(update_calibration_ls) >= 10:
+                    execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
+                    execute_batch_sql(update_calibration_sql, update_calibration_ls)
+                    insert_calibration_ls = []
+                    update_calibration_ls = []
+
+            if len(insert_calibration_ls) + len(update_calibration_ls) > 0:
                 execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
                 execute_batch_sql(update_calibration_sql, update_calibration_ls)
-                insert_calibration_ls = []
-                update_calibration_ls = []
-
-        if len(insert_calibration_ls) + len(update_calibration_ls) > 0:
-            execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
-            execute_batch_sql(update_calibration_sql, update_calibration_ls)
+        except Exception as e:
+            logger.error('校准规范插入数据库失败, error:{}'.format(str(e)))
+            error_code = e.args[0]
+            if error_code == 1111:
+                msg = e.args[1]
+                error = e.args[1]
+            else:
+                msg = '保存失败'
+                error = str(e)
+            return VIEW_FAIL(msg=msg, data={'error': error})
+        return VIEW_SUCCESS(msg='导入成功')
     except Exception as e:
-        logger.error('校准规范插入数据库失败, error:{}'.format(str(e)))
-        error_code = e.args[0]
-        if error_code == 1111:
-            msg = e.args[1]
-            error = e.args[1]
-        else:
-            msg = '保存失败'
-            error = str(e)
-        return VIEW_FAIL(msg=msg, data={'error': error})
-    return VIEW_SUCCESS()
+        logger.error('校准规范导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='校准规范导入失败', data={'error': str(e)})
 
 
 # 校验记录
@@ -1101,7 +1090,6 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
 
         fuzzy_params = {}
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
-        fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -1127,8 +1115,7 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
         data = serializer.validated_data.copy()
         calibration_cycle = data.get('calibration_cycle')
         calibration_time = data.get('calibration_time')
-        recalibration_time = \
-            calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
+        recalibration_time = calculate_recalibration_time(calibration_time, calibration_cycle)
         data.update({'recalibration_time': recalibration_time})
         state = data.get('state')
         equipment = data.get('equipment')
@@ -1138,7 +1125,7 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
         elif state == '校验完成':
             if equipment.equipment_state == 3:
                 Equipment.objects.filter(id=equipment.id).update(equipment_state=1)
-        due_date = calculate_due_date(recalibration_time)
+        due_date = calculate_due_date(recalibration_time, 'calibration')
         data.update({'due_date': due_date})
         serializer.validated_data.update(data)
         self.perform_create(serializer)
@@ -1164,8 +1151,7 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
         data = serializer.validated_data.copy()
         calibration_cycle = data.get('calibration_cycle')
         calibration_time = data.get('calibration_time')
-        recalibration_time = \
-            calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
+        recalibration_time = calculate_recalibration_time(calibration_time, calibration_cycle)
         data.update({'recalibration_time': recalibration_time})
         state = data.get('state')
         equipment = instance.equipment
@@ -1175,7 +1161,7 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
         elif state == '校验完成' and old_state == '已送检':
             if equipment.equipment_state == 3:
                 Equipment.objects.filter(id=equipment.id).update(equipment_state=1)
-        due_date = calculate_due_date(recalibration_time)
+        due_date = calculate_due_date(recalibration_time, 'calibration')
         data.update({'due_date': due_date})
         serializer.validated_data.update(data)
         self.perform_update(serializer)
@@ -1212,7 +1198,6 @@ class MaintenanceGeneric(generics.ListCreateAPIView):
 
         fuzzy_params = {}
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
-        fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -1256,6 +1241,186 @@ class OperateMaintenanceGeneric(generics.RetrieveUpdateDestroyAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
+
+
+# 批量导入维护日期
+@api_view(['POST'])
+def post_maintain(request):
+    try:
+        try:
+            file = request.FILES.get('file', '')
+            if not file:
+                return VIEW_FAIL(msg='上传文件不能为空')
+            current_path = os.path.dirname(__file__)
+            file_dir_path = os.path.join(current_path, 'temporydata')
+            if not os.path.exists(file_dir_path):
+                os.mkdir(file_dir_path)
+            file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Maintain.xlsx')
+            with open(file_path, 'wb') as f:
+                for i in file.chunks():
+                    f.write(i)
+        except Exception as e:
+            logger.error('解析文件出错, error:{}'.format(str(e)))
+            return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
+
+        insert_maintain_sql = '''insert into equipment_maintain_info(calibration_time, recalibration_time, due_date, 
+                                                    pm_q1, pm_q2, pm_q3, pm_q4,
+                                                    create_time, update_time, equipment_id)
+                                      values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+
+        update_maintain_sql = '''update equipment_maintain_info set calibration_time=%s,recalibration_time=%s,
+                                            due_date=%s,pm_q1=%s,pm_q2=%s,pm_q3=%s,pm_q4=%s,
+                                            update_time=%s where equipment_id=%s'''
+        df = pd.read_excel(file_path, sheet_name='Sheet1')
+        datas = df.to_dict('records')
+        datas = analysis_maintain(datas)
+        count = 0
+        try:
+            insert_maintain_ls = []
+            update_maintain_ls = []
+            now_ts = datetime.datetime.now()
+            for data in datas:
+                count += 1
+                lineNo = count + 1
+                equipment_id = data.get('equipment_id')
+                if not equipment_id:
+                    return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
+                calibration_time = data.get('calibration_time')
+                recalibration_time = data.get('recalibration_time')
+                if calibration_time and recalibration_time:
+                    due_date = calculate_due_date(recalibration_time, 'maintain')
+                    pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
+                else:
+                    due_date = None
+                    pm_q1, pm_q2, pm_q3, pm_q4 = None, None, None, None
+                maintain_qs = EquipmentMaintainInfo.objects.filter(equipment_id=equipment_id)
+                if maintain_qs:
+                    update_maintain_args = (calibration_time, recalibration_time, due_date,
+                                            pm_q1, pm_q2, pm_q3, pm_q4, now_ts, equipment_id)
+                    update_maintain_ls.append(update_maintain_args)
+                else:
+                    insert_maintain_args = (calibration_time, recalibration_time, due_date,
+                                            pm_q1, pm_q2, pm_q3, pm_q4,
+                                            now_ts, now_ts, equipment_id)
+                    insert_maintain_ls.append(insert_maintain_args)
+
+                if len(insert_maintain_ls) + len(update_maintain_ls) >= 10:
+                    execute_batch_sql(insert_maintain_sql, insert_maintain_ls)
+                    execute_batch_sql(update_maintain_sql, update_maintain_ls)
+                    insert_maintain_ls = []
+                    update_maintain_ls = []
+
+            if len(insert_maintain_ls) + len(update_maintain_ls) > 0:
+                execute_batch_sql(insert_maintain_sql, insert_maintain_ls)
+                execute_batch_sql(update_maintain_sql, update_maintain_ls)
+        except Exception as e:
+            logger.error('维护信息插入数据库失败, error:{}'.format(str(e)))
+            error_code = e.args[0]
+            if error_code == 1111:
+                msg = e.args[1]
+                error = e.args[1]
+            else:
+                msg = '保存失败'
+                error = str(e)
+            return VIEW_FAIL(msg=msg, data={'error': error})
+        return VIEW_SUCCESS(msg='导入成功')
+    except Exception as e:
+        logger.error('维护信息导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='维护信息导入失败', data={'error': str(e)})
+
+
+# 设备定期维护
+class MaintainInfoGeneric(generics.ListCreateAPIView):
+    model = EquipmentMaintainInfo
+    queryset = model.objects.all().order_by('create_time')
+    serializer_class = MaintainInfoSerializer
+    pagination_class = MyPagePagination
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        equipment_id = request.GET.get('equipment', '')
+        if equipment_id:
+            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
+
+        fuzzy_params = {}
+        fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
+
+        filter_params = {}
+        for k, v in fuzzy_params.items():
+            if v != None and v != '':
+                k = k + '__contains'
+                filter_params[k] = v
+
+        if filter_params:
+            queryset = queryset.filter(**filter_params)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data.copy()
+        recalibration_time = data.get('recalibration_time')
+        due_date = calculate_due_date(recalibration_time, 'maintain')
+        data.update({'due_date': due_date})
+        pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
+        data.update({'pm_q1': pm_q1})
+        data.update({'pm_q2': pm_q2})
+        data.update({'pm_q3': pm_q3})
+        data.update({'pm_q4': pm_q4})
+        serializer.validated_data.update(data)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+# 更新维护信息
+class OperateMaintainInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
+    model = EquipmentMaintainInfo
+    queryset = model.objects.all()
+    serializer_class = MaintainInfoSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+
+    @set_update_log
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data.copy()
+        recalibration_time = data.get('recalibration_time')
+        due_date = calculate_due_date(recalibration_time, 'maintain')
+        data.update({'due_date': due_date})
+        pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
+        data.update({'pm_q1': pm_q1})
+        data.update({'pm_q2': pm_q2})
+        data.update({'pm_q3': pm_q3})
+        data.update({'pm_q4': pm_q4})
+        serializer.validated_data.update(data)
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):

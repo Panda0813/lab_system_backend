@@ -1,5 +1,6 @@
 from chinese_calendar import is_holiday
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 def get_holiday(year, date_type):
@@ -131,13 +132,43 @@ def calculate_end_time(start_time, hours):
     return end
 
 
+# 计算再校准日期
+def calculate_recalibration_time(calibration_time, months):
+    recalibration_time = calibration_time + relativedelta(months=months) + timedelta(days=-1)
+    return recalibration_time
+
+
 # 计算校准到期日
-def calculate_due_date(recalibration_time):
+def calculate_due_date(recalibration_time, module):
     today_date = datetime.today().date()
     recalibration_date = recalibration_time
     delta_days = (recalibration_date - today_date).days
     if delta_days < 30:
-        due_date = 'Please perform calibration ASAP'
+        if module == 'calibration':
+            due_date = 'Please perform calibration ASAP'
+        elif module == 'maintain':
+            due_date = 'Please perform PM-Y and external Cal ASAP'
+        else:
+            return None
     else:
         due_date = str(delta_days)
     return due_date
+
+
+def calculate_pm_time(recalibration_time):
+    recalibration_month = recalibration_time.month
+    if recalibration_month <= 3:
+        qm_q1 = recalibration_time
+    elif recalibration_month <= 6:
+        qm_q1 = recalibration_time + relativedelta(months=-3)
+    elif recalibration_month <= 9:
+        qm_q1 = recalibration_time + relativedelta(months=-6)
+    elif recalibration_month <= 12:
+        qm_q1 = recalibration_time + relativedelta(months=-9)
+    else:
+        qm_q1 = recalibration_time
+    qm_q2 = (qm_q1 + relativedelta(months=3)).strftime('%Y-%m-%d')
+    qm_q3 = (qm_q1 + relativedelta(months=6)).strftime('%Y-%m-%d')
+    qm_q4 = (qm_q1 + relativedelta(months=9)).strftime('%Y-%m-%d')
+    qm_q1 = qm_q1.strftime('%Y-%m-%d')
+    return qm_q1, qm_q2, qm_q3, qm_q4

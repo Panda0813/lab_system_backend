@@ -287,11 +287,13 @@ class OperateBrokenInfoSerializer(serializers.ModelSerializer):
 
 class CalibrationInfoSerializer(serializers.ModelSerializer):
     due_date = serializers.ReadOnlyField()
+    recalibration_time = serializers.ReadOnlyField()
 
     class Meta:
         model = EquipmentCalibrationInfo
-        fields = ('id', 'equipment', 'equipment_name', 'calibration_time', 'recalibration_time', 'due_date',
-                  'certificate', 'certificate_year', 'state', 'remarks')
+        fields = ('id', 'equipment', 'equipment_name', 'equipment_state', 'specification', 'environment',
+                  'calibration_cycle', 'calibration_time', 'recalibration_time', 'due_date',
+                  'state', 'remarks')
         extra_kwargs = {
             'equipment': {
                 'label': '设备',
@@ -308,11 +310,13 @@ class CalibrationInfoSerializer(serializers.ModelSerializer):
 
 class OperateCalibrationSerializer(serializers.ModelSerializer):
     due_date = serializers.ReadOnlyField()
+    recalibration_time = serializers.ReadOnlyField()
 
     class Meta:
         model = EquipmentCalibrationInfo
-        fields = ('id', 'equipment', 'equipment_name', 'calibration_time', 'recalibration_time', 'due_date',
-                  'certificate', 'certificate_year', 'state', 'remarks')
+        fields = ('id', 'equipment', 'equipment_name', 'equipment_state', 'specification', 'environment',
+                  'calibration_cycle', 'calibration_time', 'recalibration_time', 'due_date',
+                  'state', 'remarks')
         extra_kwargs = {
             'equipment': {
                 'read_only': True
@@ -326,7 +330,8 @@ class MaintenanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentMaintenanceRecord
         fields = ('id', 'user', 'user_name', 'equipment', 'equipment_name', 'fault_description', 'reason_measure',
-                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user', 'remarks', 'create_time')
+                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user',
+                  'broken_part_code', 'broken_part_cost', 'remarks', 'create_time')
 
 
 class OperateMaintenanceSerializer(serializers.ModelSerializer):
@@ -335,7 +340,8 @@ class OperateMaintenanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentMaintenanceRecord
         fields = ('id', 'user', 'user_name', 'equipment', 'equipment_name', 'fault_description', 'reason_measure',
-                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user', 'remarks')
+                  'down_time', 'up_time', 'maintenance_hours', 'maintenance_user',
+                  'broken_part_code', 'broken_part_cost', 'remarks')
         extra_kwargs = {
             'user': {
                 'read_only': True

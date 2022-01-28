@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.utils.serializer_helpers import ReturnDict
 from urllib.parse import unquote
+from dateutil.relativedelta import relativedelta
 
 from equipments.serializers import ProjectSerializer, EquipmentSerializer, DepreciationSerializer, \
     ExtendAttribute
@@ -20,7 +21,7 @@ from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSeri
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
     EquipmentCalibrationInfo, EquipmentMaintenanceRecord
-from equipments.ext_utils import analysis_equipment_data, create_excel_resp
+from equipments.ext_utils import analysis_equipment_data, create_excel_resp, analysis_calibration
 from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS
 from utils.log_utils import set_create_log, set_update_log, set_delete_log, get_differ, save_operateLog
 from utils.pagination import MyPagePagination
@@ -106,12 +107,16 @@ def get_category(request):
     category = df.to_dict('records')
     return REST_SUCCESS(category)
 
+
 # 下载设备上传文件模板
 @api_view(['GET'])
-def get_import_template(request):
+def get_upload_template(request):
     current_path = os.path.dirname(__file__)
-    file_path = os.path.join(current_path, 'template.xlsx')
-    return create_excel_resp(file_path, 'template')
+    file_name = request.GET.get('file_name')
+    if not file_name:
+        return REST_FAIL({'msg': 'file_name不能为空'})
+    file_path = os.path.join(current_path, '{}.xlsx'.format(file_name))
+    return create_excel_resp(file_path, file_name)
 
 
 # 批量导入附件设备信息
@@ -125,7 +130,7 @@ def post_EquipmentData(request):
         file_dir_path = os.path.join(current_path, 'temporydata')
         if not os.path.exists(file_dir_path):
             os.mkdir(file_dir_path)
-        file_path = os.path.join(file_dir_path, file.name)
+        file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Resource_Management_System_v1.xlsx')
         with open(file_path, 'wb') as f:
             for i in file.chunks():
                 f.write(i)
@@ -147,13 +152,6 @@ def post_EquipmentData(request):
                                     install_date=%s,manage_type=%s,manager=%s,application_specialist=%s,
                                     manufacturer=%s, manufacture_date=%s,origin_place=%s,update_time=%s where id=%s'''
 
-    insert_calibration_sql = '''insert into equipment_calibration_info(calibration_time, recalibration_time, due_date, 
-                                        certificate, certificate_year, create_time, update_time, equipment_id, state)
-                                  values(%s, %s, %s, %s, %s, %s, %s, %s, %s)'''
-
-    update_calibration_sql = '''update equipment_calibration_info set calibration_time=%s,recalibration_time=%s,
-                                    due_date=%s,certificate=%s,certificate_year=%s,update_time=%s,state=%s where equipment_id=%s'''
-
     # datas = req_dic.get('datas', [])
     df = pd.read_excel(file_path, sheet_name='Sheet1')
     datas = df.to_dict('records')
@@ -162,8 +160,6 @@ def post_EquipmentData(request):
     try:
         insert_equipment_ls = []
         update_equipment_ls = []
-        calibration_ls = []
-        update_calibration_ls = []
         now_ts = datetime.datetime.now()
         for data in datas:
             count += 1
@@ -241,17 +237,9 @@ def post_EquipmentData(request):
             execute_batch_sql(insert_equipment_sql, insert_equipment_ls)
             execute_batch_sql(update_equipment_sql, update_equipment_ls)
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
         logger.error('设备信息插入数据库失败, error:{}'.format(str(e)))
         error_code = e.args[0]
-        if error_code == 1062:
-            msg = '存在重复导入'
-            error = e.args[1]
-            reg = re.findall(r"Duplicate entry '(.*)' for key", error)
-            if reg:
-                msg += '：{}'.format(reg[0])
-        elif error_code == 1111:
+        if error_code == 1111:
             msg = e.args[1]
             error = e.args[1]
         else:
@@ -384,7 +372,7 @@ class EquipmentDetail(APIView):
                 data.update({'is_delete': False})
                 data.update({'create_time': datetime.datetime.now()})
                 serializer.validated_data.update(data)
-                serializer.save()
+            serializer.save()
             if extendattribute_set:
                 for _fields in extendattribute_set:
                     attribute_name = _fields['attribute_name']
@@ -1000,10 +988,101 @@ class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
         return Response(serializer.data)
 
 
+# 批量导入校准规范
+@api_view(['POST'])
+def post_calibration(request):
+    try:
+        file = request.FILES.get('file', '')
+        if not file:
+            return VIEW_FAIL(msg='上传文件不能为空')
+        current_path = os.path.dirname(__file__)
+        file_dir_path = os.path.join(current_path, 'temporydata')
+        if not os.path.exists(file_dir_path):
+            os.mkdir(file_dir_path)
+        file_path = os.path.join(file_dir_path, 'UniIC_Equipment_Calibration.xlsx')
+        with open(file_path, 'wb') as f:
+            for i in file.chunks():
+                f.write(i)
+    except Exception as e:
+        logger.error('解析文件出错, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
+
+    insert_calibration_sql = '''insert into equipment_calibration_info(specification, environment, calibration_cycle,
+                                                calibration_time, recalibration_time, due_date, 
+                                                create_time, update_time, equipment_id, state)
+                                  values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'''
+
+    update_calibration_sql = '''update equipment_calibration_info set specification=%s,environment=%s,
+                                        calibration_cycle=%s,calibration_time=%s,recalibration_time=%s,
+                                        due_date=%s,update_time=%s,state=%s where equipment_id=%s'''
+    df = pd.read_excel(file_path, sheet_name='Sheet1')
+    datas = df.to_dict('records')
+    datas = analysis_calibration(datas)
+    count = 0
+    try:
+        insert_calibration_ls = []
+        update_calibration_ls = []
+        now_ts = datetime.datetime.now()
+        for data in datas:
+            count += 1
+            lineNo = count + 1
+            equipment_id = data.get('equipment_id')
+            if not equipment_id:
+                return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
+            specification = data.get('specification')
+            environment = data.get('environment')
+            calibration_cycle = data.get('calibration_cycle')
+            calibration_time = data.get('calibration_time')
+            if calibration_cycle and calibration_time:
+                recalibration_time = \
+                    calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
+                due_date = calculate_due_date(recalibration_time)
+                try:
+                    due_date = str(int(due_date))
+                    calibration_state = '校验完成'
+                except:
+                    calibration_state = '待送检'
+            else:
+                recalibration_time = None
+                due_date = None
+                calibration_state = None
+            calibration_qs = EquipmentCalibrationInfo.objects.filter(equipment_id=equipment_id)
+            if calibration_qs:
+                update_calibration_args = (specification, environment, calibration_cycle, calibration_time,
+                                           recalibration_time, due_date, now_ts, calibration_state, equipment_id)
+                update_calibration_ls.append(update_calibration_args)
+            else:
+                insert_calibration_args = (specification, environment, calibration_cycle,
+                                           calibration_time, recalibration_time, due_date,
+                                           now_ts, now_ts, equipment_id, calibration_state)
+                insert_calibration_ls.append(insert_calibration_args)
+
+            if len(insert_calibration_ls) + len(update_calibration_ls) >= 10:
+                execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
+                execute_batch_sql(update_calibration_sql, update_calibration_ls)
+                insert_calibration_ls = []
+                update_calibration_ls = []
+
+        if len(insert_calibration_ls) + len(update_calibration_ls) > 0:
+            execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
+            execute_batch_sql(update_calibration_sql, update_calibration_ls)
+    except Exception as e:
+        logger.error('校准规范插入数据库失败, error:{}'.format(str(e)))
+        error_code = e.args[0]
+        if error_code == 1111:
+            msg = e.args[1]
+            error = e.args[1]
+        else:
+            msg = '保存失败'
+            error = str(e)
+        return VIEW_FAIL(msg=msg, data={'error': error})
+    return VIEW_SUCCESS()
+
+
 # 校验记录
 class CalibrationInfoGeneric(generics.ListCreateAPIView):
     model = EquipmentCalibrationInfo
-    queryset = model.objects.all().order_by('-create_time')
+    queryset = model.objects.all().order_by('create_time')
     serializer_class = CalibrationInfoSerializer
     pagination_class = MyPagePagination
     table_name = model._meta.db_table
@@ -1046,7 +1125,11 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
-        recalibration_time = data.get('recalibration_time')
+        calibration_cycle = data.get('calibration_cycle')
+        calibration_time = data.get('calibration_time')
+        recalibration_time = \
+            calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
+        data.update({'recalibration_time': recalibration_time})
         state = data.get('state')
         equipment = data.get('equipment')
         if state == '已送检':
@@ -1079,7 +1162,11 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
-        recalibration_time = data.get('recalibration_time')
+        calibration_cycle = data.get('calibration_cycle')
+        calibration_time = data.get('calibration_time')
+        recalibration_time = \
+            calibration_time + relativedelta(months=calibration_cycle) + datetime.timedelta(days=-1)
+        data.update({'recalibration_time': recalibration_time})
         state = data.get('state')
         equipment = instance.equipment
         if state == '已送检' and old_state == '待送检':

@@ -411,12 +411,15 @@ class EquipmentCalibrationInfo(models.Model):
     )
 
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
-    calibration_time = models.DateField(verbose_name='校准日期')
-    recalibration_time = models.DateField(verbose_name='再校准日期')
-    due_date = models.CharField(verbose_name='到期日', max_length=50)
-    certificate = models.CharField(verbose_name='校准报告', max_length=100)
-    certificate_year = models.CharField(verbose_name='校准报告版本', max_length=10)
-    state = models.CharField(verbose_name='校验状态', max_length=20, choices=STATE, default=STATE[0][0])
+    specification = models.CharField(verbose_name='校准规范', max_length=200, null=True)
+    environment = models.CharField(verbose_name='环境要求', max_length=100, null=True)
+    calibration_cycle = models.IntegerField(verbose_name='校准周期(月)', default=12)
+    calibration_time = models.DateField(verbose_name='校准日期', null=True)
+    recalibration_time = models.DateField(verbose_name='再校准日期', null=True)
+    due_date = models.CharField(verbose_name='到期日', max_length=50, null=True)
+    # certificate = models.CharField(verbose_name='校准报告', max_length=100)
+    # certificate_year = models.CharField(verbose_name='校准报告版本', max_length=10)
+    state = models.CharField(verbose_name='校验状态', max_length=20, choices=STATE, null=True)
     remarks = models.TextField(verbose_name='备注', null=True)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
@@ -430,6 +433,13 @@ class EquipmentCalibrationInfo(models.Model):
     def equipment_name(self):
         if self.equipment:
             return self.equipment.name
+        else:
+            return None
+
+    @property
+    def equipment_state(self):
+        if self.equipment:
+            return self.equipment.equipment_state
         else:
             return None
 
@@ -467,3 +477,22 @@ class EquipmentMaintenanceRecord(models.Model):
             return self.equipment.name
         else:
             return None
+
+
+class EquipmentMaintainInfo(models.Model):
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
+    calibration_time = models.DateField(verbose_name='校准日期', null=True)
+    recalibration_time = models.DateField(verbose_name='再校准日期', null=True)
+    due_date = models.CharField(verbose_name='离PM-Y时间', max_length=50, null=True)
+    pm_q1 = models.CharField(verbose_name='PM-Q1', max_length=20, null=True)
+    pm_q2 = models.CharField(verbose_name='PM-Q2', max_length=20, null=True)
+    pm_q3 = models.CharField(verbose_name='PM-Q3', max_length=20, null=True)
+    pm_q4 = models.CharField(verbose_name='PM-Q4', max_length=20, null=True)
+    remarks = models.TextField(verbose_name='备注', null=True)
+    create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
+    update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
+
+    class Meta:
+        db_table = 'equipment_maintain_info'
+        verbose_name = '设备定期维护表'
+        verbose_name_plural = verbose_name

@@ -5,7 +5,7 @@ urlpatterns = [
     url(r'^list$', views.EquipmentListGeneric.as_view()),
     url(r'^list/(?P<pk>\S+)$', views.EquipmentDetailGeneric.as_view()),
     url(r'^detail$', views.EquipmentDetail.as_view()),
-    url(r'^install-template$', views.get_import_template),
+    url(r'^upload-template$', views.get_upload_template),
     url(r'^import-base-data$', views.post_EquipmentData),
     url(r'^get-deposit-position$', views.get_deposit_position),
     url(r'^equipment-exist$', views.query_equip_exist),
@@ -24,4 +24,5 @@ urlpatterns = [
     url(r'^calibration/(?P<pk>[0-9]+)$', views.OperateCalibrationInfoGeneric.as_view()),
     url(r'^maintenance$', views.MaintenanceGeneric.as_view()),
     url(r'^maintenance/(?P<pk>[0-9]+)$', views.OperateMaintenanceGeneric.as_view()),
+    url(r'^upload-calibration$', views.post_calibration),
 ]

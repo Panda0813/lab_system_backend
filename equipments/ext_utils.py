@@ -183,6 +183,33 @@ def analysis_equipment_data(datas):
     return datas
 
 
+calibration_columns_map = {
+    'ID': 'equipment_id',
+    '校准规范': 'specification',
+    '环境要求': 'environment',
+    '校准周期(月)': 'calibration_cycle',
+    '校准日期': 'calibration_time'
+}
+
+
+def analysis_calibration(datas):
+    if not datas:
+        return []
+    df = pd.DataFrame(datas)
+    df = df[list(calibration_columns_map.keys())]
+    df.rename(columns=calibration_columns_map, inplace=True)
+    df = df.replace({np.nan: None})
+    ndf = df.copy()
+    ndf['equipment_id'] = ndf['equipment_id'].map(lambda x: str(x).strip() if x else x)
+    ndf['equipment_id'] = ndf['equipment_id'].map(lambda x: re.sub(r'|/r|/n|\n', '', x) if x else x)
+    ndf['calibration_cycle'] = ndf['calibration_cycle'].map(lambda x: int(re.sub(r' |/r|/n|\n', '', str(x))) if x else x)
+    ndf['calibration_time'] = ndf['calibration_time'].apply(trans_float_ts, args=('%Y-%m-%d', '%Y-%m-%d'))
+    ndf['calibration_time'] = ndf['calibration_time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').date() if x else x)
+    ndf = ndf.replace({np.nan: None})
+    datas = ndf.to_dict('records')
+    return datas
+
+
 def execute_batch_sql(sql, datas):
     if not datas:
         return None

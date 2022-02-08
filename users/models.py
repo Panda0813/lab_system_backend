@@ -65,18 +65,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     重写User模型
     """
     username = models.CharField(max_length=50, verbose_name='用户名称', unique=True)
-    telephone = models.CharField(max_length=11, verbose_name='联系方式', null=True)
+    telephone = models.CharField(max_length=11, verbose_name='联系方式', null=True, blank=True)
     employee_no = models.CharField(max_length=10, verbose_name='工号', null=True)
     email = models.EmailField(max_length=100, verbose_name='邮箱', null=True)
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='所属部门')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
-    roles = models.TextField(verbose_name='拥有角色', null=True)
+    roles = models.TextField(verbose_name='拥有角色', null=True, blank=True)
 
     USERNAME_FIELD = 'username'  # authenticate 进行验证的字段
     # createsuperuser命令输入的字段，django默认需要输入密码，所以不用指定要password
-    REQUIRED_FIELDS = ['employee_no', 'email']
+    REQUIRED_FIELDS = ['telephone', 'employee_no', 'email']
     EMAIL_FILED = 'email'  # 指定发送邮箱
 
     objects = UserManager()  # 存入model

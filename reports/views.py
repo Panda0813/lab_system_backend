@@ -98,12 +98,12 @@ def get_usage_rate(request):
         ndf = get_usagetime(ndf, start_time, end_time)
 
         # 按设备统计明细
-        mdf = ndf[['equipment_id', 'user_name', 'start_time', 'end_time', 'usage_time']]
+        mdf = ndf[['equipment_id', 'equipment_name', 'user_name', 'start_time', 'end_time', 'usage_time']]
         mdf.sort_values('start_time', inplace=True)
         equipment_id_ls = [equipment_id for equipment_id in list(mdf['equipment_id'].unique())]
         equipment_id_ls.sort()
 
-        final_df = pd.DataFrame(columns=['equipment_id', 'user_name', 'start_time', 'end_time', 'usage_time'],
+        final_df = pd.DataFrame(columns=['equipment_id', 'equipment_name', 'user_name', 'start_time', 'end_time', 'usage_time'],
                                 dtype=object)
         for equipment_id in equipment_id_ls:
             ldf = mdf[mdf['equipment_id'] == equipment_id]

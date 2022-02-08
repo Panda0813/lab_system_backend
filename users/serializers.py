@@ -90,16 +90,6 @@ class RegisterSerializer(serializers.ModelSerializer):
                     'required': '用户名称[username]为必填项'
                 }
             },
-            'telephone': {
-                'label': '手机号',
-                'required': True,
-                # 手机号重复验证
-                'validators': [validators.UniqueValidator(queryset=User.objects.filter(is_delete=False).all(), message='该手机号已被注册')],
-                'error_messages': {
-                    'blank': '手机号[telephone]不能为空',
-                    'required': '手机号[telephone]为必填项'
-                }
-            },
             'employee_no': {
                 'label': '工号',
                 'required': True,
@@ -141,7 +131,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         validated_data['password'] = make_password(validated_data.get('password'))
-        validated_data['login_name'] = validated_data.get('employee_no')
         standard_id = Group.objects.filter(name='standardUser').first().id
         validated_data['roles'] = [{'id': standard_id, 'name': 'standardUser'}]
         # 创建User对象

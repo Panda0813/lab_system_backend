@@ -113,10 +113,7 @@ class UserRegisterView(generics.CreateAPIView):
 class CustomBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         try:
-            if not username:
-                username = kwargs.get('login_name')
-            user = User.objects.get(Q(login_name=username) | Q(telephone=username) |
-                                    Q(employee_no=username) | Q(email=username))
+            user = User.objects.get(Q(username=username) | Q(email=username) | Q(employee_no=username))
             from django.contrib.auth.hashers import make_password
             if user.check_password(password):
                 return user
@@ -164,11 +161,6 @@ class JwtLoginView(ObtainJSONWebToken):
             if isinstance(data, QueryDict):
                 _mutable = data._mutable
                 data._mutable = True
-            if not data.get('login_name'):
-                data['login_name'] = data['username']
-                if isinstance(data, QueryDict):
-                    data._mutable = _mutable
-                kwargs['data'] = data
         serializer_class = self.get_serializer_class()
         kwargs['context'] = self.get_serializer_context()
         return serializer_class(*args, **kwargs)

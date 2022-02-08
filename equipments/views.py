@@ -83,16 +83,16 @@ def get_map_options(request):
 @api_view(['GET'])
 def get_category(request):
     categoryBase = [
-        {'id': 1, 'name': 'APT MB & SLT System'},
         {'id': 2, 'name': 'ATE Tester'},
-        {'id': 3, 'name': 'Device Test Tooling'},
-        {'id': 4, 'name': 'Facility Equipment & Tool'},
-        {'id': 5, 'name': 'Inspection & Rework'},
-        {'id': 6, 'name': 'Measurement & Intrumentation'},
-        {'id': 7, 'name': 'Other Tool, Jig & Kit'},
-        {'id': 8, 'name': 'Probe, Tip & Assembly'},
+        {'id': 10, 'name': 'Tester Cell Machine'},
         {'id': 9, 'name': 'Reliability & Environment'},
-        {'id': 10, 'name': 'Tester Cell Machine'}]
+        {'id': 6, 'name': 'Measurement & Intrumentation'},
+        {'id': 8, 'name': 'Probe, Tip & Assembly'},
+        {'id': 3, 'name': 'Device Test Tooling'},
+        {'id': 5, 'name': 'Inspection & Rework'},
+        {'id': 7, 'name': 'Other Tool, Jig & Kit'},
+        {'id': 4, 'name': 'Facility Equipment & Tool'},
+        {'id': 1, 'name': 'APT MB & SLT System'}]
     df1 = pd.DataFrame(categoryBase)
     countqs = Equipment.objects.filter(is_delete=False).values('fixed_asset_category').annotate(count=Count('id')).all()
     if countqs:

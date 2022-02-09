@@ -73,8 +73,12 @@ def get_usage_rate(request):
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
-            start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-            end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            try:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            except:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
             total_weekday = calculate_datediff(start_time, end_time)  # 总工时
         else:
             total_weekday_map = {
@@ -249,8 +253,12 @@ def get_use_detail(request):
         end_time = request.GET.get('end_time')
 
         if start_time and end_time:
-            start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-            end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            try:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            except:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
             obj = obj.filter(Q(start_time__gte=start_time, actual_end_time__lte=end_time) |
                              Q(start_time__range=[start_time, end_time]) | Q(actual_end_time__range=[start_time, end_time]))
         borrow_record_qs = obj.order_by('-id').values('user__username', 'equipment_id', 'equipment__name', 'project__name',
@@ -314,8 +322,12 @@ def get_maintenance_time(request):
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
-            start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-            end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            try:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            except:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
             total_weekday = calculate_datediff(start_time, end_time)  # 总工时
         else:
             start_time, end_time = get_start_end('quarter')  # 按季度导出
@@ -458,8 +470,12 @@ def get_equipment_fee(request):
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
-            start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
-            end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            try:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+            except:
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
         else:
             date_type = request.GET.get('date_type', 'week')  # week, month, year
             start_time, end_time = get_start_end(date_type)

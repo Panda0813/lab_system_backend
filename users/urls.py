@@ -21,4 +21,5 @@ urlpatterns = [
     url(r'^users/(?P<pk>[0-9]+)', views.UserDetailGeneric.as_view()),
     url(r'^change-password$', views.ChangePassword.as_view()),
     url(r'^operation-log$', views.OperationLogGeneric.as_view()),
+    url(r'^username-exist$', views.query_username_exist),
 ]

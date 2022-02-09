@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.contrib.auth.models import Group
 from rest_framework.views import APIView
 from rest_framework import filters
+from rest_framework.decorators import api_view
 from rest_framework import generics, serializers, permissions
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
@@ -195,6 +196,19 @@ class LogoutView(APIView):
         return Response({'msg': '退出成功'})
 
 
+# 查询某个用户名是否存在
+@api_view(['GET'])
+def query_username_exist(request):
+    username = request.GET.get('username')
+    if not username:
+        return REST_FAIL({'msg': 'username不能为空'})
+    qs = User.objects.filter(username=username)
+    data = {}
+    if qs:
+        data = list(qs.values())[0]
+    return REST_SUCCESS(data)
+
+
 # 查看用户列表
 class UserListGeneric(generics.ListAPIView):
     queryset = User.objects.all().filter(is_delete=False).order_by('-register_time')
@@ -252,7 +266,7 @@ class UserListGeneric(generics.ListAPIView):
         return Response(serializer.data)
 
 
-class UserDetailGeneric(generics.RetrieveUpdateAPIView):
+class UserDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.filter(is_delete=False).all()
     serializer_class = UserSerializer
 

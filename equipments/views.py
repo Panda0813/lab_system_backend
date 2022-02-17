@@ -257,6 +257,9 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         equipment_state = request.GET.get('equipment_state')
         if equipment_state:
             queryset = queryset.filter(equipment_state=equipment_state)
+        borrow_tag = request.GET.get('borrow_tag')
+        if borrow_tag:
+            queryset = queryset.filter(equipment_state__in=[1, 2])
         fixed_asset_category = request.GET.get('fixed_asset_category')
         if fixed_asset_category:
             queryset = queryset.filter(fixed_asset_category=fixed_asset_category)

@@ -245,7 +245,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
     model = Equipment
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
-    queryset = model.objects.filter(is_delete=False).all().order_by('create_time')
+    queryset = model.objects.filter(is_delete=False).all().order_by('id')
     serializer_class = EquipmentSerializer
     pagination_class = MyPagePagination
 
@@ -262,7 +262,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             queryset = queryset.filter(equipment_state__in=[1, 2])
         fixed_asset_category = request.GET.get('fixed_asset_category')
         if fixed_asset_category:
-            queryset = queryset.filter(fixed_asset_category=fixed_asset_category)
+            queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category))
         calibration_state = request.GET.get('calibration_state')
         if calibration_state:
             calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')

@@ -105,16 +105,16 @@ class Project(models.Model):
 
 class Equipment(models.Model):
     FIXED_ASSET_CATEGORYS = (
-        (1, 'APT MB & SLT System'),
-        (2, 'ATE Tester'),
-        (3, 'Device Test Tooling'),
-        (4, 'Facility Equipment & Tool'),
-        (5, 'Inspection & Rework'),
-        (6, 'Measurement & Intrumentation'),
-        (7, 'Other Tool, Jig & Kit'),
-        (8, 'Probe, Tip & Assembly'),
-        (9, 'Reliability & Environment'),
-        (10, 'Tester Cell Machine')
+        (1, 'ATE Tester'),
+        (2, 'Tester Cell Machine'),
+        (3, 'Reliability & Environment'),
+        (4, 'Measurement & Intrumentation'),
+        (5, 'Probe, Tip & Assembly'),
+        (6, 'Device Test Tooling'),
+        (7, 'Inspection & Rework'),
+        (8, 'Other Tool, Jig & Kit'),
+        (9, 'Facility Equipment & Tool'),
+        (10, 'APT MB & SLT System')
     )
     EQUIPMENT_STATES = (
         (1, '待用'),

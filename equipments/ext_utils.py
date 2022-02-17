@@ -44,16 +44,16 @@ def dictfetchall(cursor):
 
 
 FIXED_ASSET_CATEGORYS = {
-    'APT MB & SLT System': 1,
-    'ATE Tester': 2,
-    'Device Test Tooling': 3,
-    'Facility Equipment & Tool': 4,
-    'Inspection & Rework': 5,
-    'Measurement & Intrumentation': 6,
-    'Other Tool, Jig & Kit': 7,
-    'Probe, Tip & Assembly': 8,
-    'Reliability & Environment': 9,
-    'Tester Cell Machine': 10
+    'ATE Tester': 1,
+    'Tester Cell Machine': 2,
+    'Reliability & Environment': 3,
+    'Measurement & Intrumentation': 4,
+    'Probe, Tip & Assembly': 5,
+    'Device Test Tooling': 6,
+    'Inspection & Rework': 7,
+    'Other Tool, Jig & Kit': 8,
+    'Facility Equipment & Tool': 9,
+    'APT MB & SLT System': 10
 }
 
 EQUIPMENT_STATES = {

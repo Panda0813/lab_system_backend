@@ -83,16 +83,16 @@ def get_map_options(request):
 @api_view(['GET'])
 def get_category(request):
     categoryBase = [
-        {'id': 2, 'name': 'ATE Tester'},
-        {'id': 10, 'name': 'Tester Cell Machine'},
-        {'id': 9, 'name': 'Reliability & Environment'},
-        {'id': 6, 'name': 'Measurement & Intrumentation'},
-        {'id': 8, 'name': 'Probe, Tip & Assembly'},
-        {'id': 3, 'name': 'Device Test Tooling'},
-        {'id': 5, 'name': 'Inspection & Rework'},
-        {'id': 7, 'name': 'Other Tool, Jig & Kit'},
-        {'id': 4, 'name': 'Facility Equipment & Tool'},
-        {'id': 1, 'name': 'APT MB & SLT System'}]
+        {'id': 1, 'name': 'ATE Tester'},
+        {'id': 2, 'name': 'Tester Cell Machine'},
+        {'id': 3, 'name': 'Reliability & Environment'},
+        {'id': 4, 'name': 'Measurement & Intrumentation'},
+        {'id': 5, 'name': 'Probe, Tip & Assembly'},
+        {'id': 6, 'name': 'Device Test Tooling'},
+        {'id': 7, 'name': 'Inspection & Rework'},
+        {'id': 8, 'name': 'Other Tool, Jig & Kit'},
+        {'id': 9, 'name': 'Facility Equipment & Tool'},
+        {'id': 10, 'name': 'APT MB & SLT System'}]
     df1 = pd.DataFrame(categoryBase)
     countqs = Equipment.objects.filter(is_delete=False).values('fixed_asset_category').annotate(count=Count('id')).all()
     if countqs:
@@ -162,8 +162,8 @@ def post_EquipmentData(request):
         try:
             insert_equipment_ls = []
             update_equipment_ls = []
-            now_ts = datetime.datetime.now()
             for data in datas:
+                now_ts = datetime.datetime.now()
                 count += 1
                 lineNo = count + 1
                 equipment_id = data.get('id')
@@ -245,7 +245,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
     model = Equipment
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
-    queryset = model.objects.filter(is_delete=False).all().order_by('id')
+    queryset = model.objects.filter(is_delete=False).all().order_by('fixed_asset_category')
     serializer_class = EquipmentSerializer
     pagination_class = MyPagePagination
 
@@ -260,9 +260,6 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         borrow_tag = request.GET.get('borrow_tag')
         if borrow_tag:
             queryset = queryset.filter(equipment_state__in=[1, 2])
-        fixed_asset_category = request.GET.get('fixed_asset_category')
-        if fixed_asset_category:
-            queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category))
         calibration_state = request.GET.get('calibration_state')
         if calibration_state:
             calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
@@ -273,17 +270,9 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             maintain_qs = EquipmentMaintainInfo.objects.all().values('equipment_id')
             maintain_qs = [q['equipment_id'] for q in maintain_qs]
             queryset = queryset.exclude(id__in=maintain_qs)
-        # fuzzy_params = {}
-        # fuzzy_params['name'] = request.GET.get('name', '')
-        # fuzzy_params['fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
-        #
-        # filter_params = {}
-        # for k, v in fuzzy_params.items():
-        #     if v != None and v != '':
-        #         k = k + '__contains'
-        #         filter_params[k] = v
-        # if filter_params:
-        #     queryset = queryset.filter(**filter_params)
+        fixed_asset_category = request.GET.get('fixed_asset_category')
+        if fixed_asset_category:
+            queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category)).order_by('-create_time')
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -1012,8 +1001,8 @@ def post_calibration(request):
         try:
             insert_calibration_ls = []
             update_calibration_ls = []
-            now_ts = datetime.datetime.now()
             for data in datas:
+                now_ts = datetime.datetime.now()
                 count += 1
                 lineNo = count + 1
                 equipment_id = data.get('equipment_id')
@@ -1295,8 +1284,8 @@ def post_maintain(request):
         try:
             insert_maintain_ls = []
             update_maintain_ls = []
-            now_ts = datetime.datetime.now()
             for data in datas:
+                now_ts = datetime.datetime.now()
                 count += 1
                 lineNo = count + 1
                 equipment_id = data.get('equipment_id')

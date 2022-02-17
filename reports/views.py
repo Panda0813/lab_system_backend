@@ -123,8 +123,7 @@ def get_usage_rate(request):
         total_df = ndf[['equipment_id', 'usage_time']]
         total_df = total_df.groupby('equipment_id').sum().reset_index()
         total_df['total_weekday'] = total_weekday
-        total_df['percentage'] = total_df['usage_time'] / total_df['total_weekday']
-        total_df['percentage'] = total_df['percentage'].map(lambda x: round(x, 4))
+        total_df['percentage'] = round(total_df['usage_time'] / total_df['total_weekday'], 4)
         total_df['usage_time'] = total_df['usage_time'].map(lambda x: round(x, 2))
         rate_df = total_df
 
@@ -147,11 +146,12 @@ def get_usage_rate(request):
             for i in range(len(x)):
                 x[i] = x[i] + width
             total_weekday_label = 'Total Weekday({}H)'.format(total_weekday)
-            t1 = plt.bar(x, total_df['total_weekday'], width=width, label=total_weekday_label, fc='r')
+            t1 = plt.bar(x, total_df['usage_time'], width=width, tick_label=total_df['equipment_id'],
+                         label='Total Usage Time(H)', fc='b')
             for i in range(len(x)):
                 x[i] = x[i] + width
-            t2 = plt.bar(x, total_df['usage_time'], width=width, tick_label=total_df['equipment_id'],
-                         label='Total Usage Time(H)', fc='b')
+            t2 = plt.bar(x, total_df['total_weekday'], width=width, label=total_weekday_label, fc='r')
+            autolabel(t1)
             autolabel(t2)
             plt.xticks(rotation=45)
             plt.legend(bbox_to_anchor=(1.0, 0.7), prop={'size': 12})
@@ -186,15 +186,16 @@ def get_usage_rate(request):
             l_end = len(final_df.index) + 2
             for col_num, value in enumerate(final_df.columns.values):
                 worksheet.write(1, col_num, value, title_fmt)
-            worksheet.merge_range('A1:E1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
-            worksheet.set_column('A:A', 15)
-            worksheet.set_column('B:B', 10)
-            worksheet.set_column('C:C', 22)
+            worksheet.merge_range('A1:F1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
+            worksheet.set_column('A:A', 20)
+            worksheet.set_column('B:B', 28)
+            worksheet.set_column('C:C', 10)
             worksheet.set_column('D:D', 22)
-            worksheet.set_column('E:E', 14, float_fmt)
+            worksheet.set_column('E:E', 22)
+            worksheet.set_column('F:F', 14, float_fmt)
             # 加边框
-            worksheet.conditional_format('A3:E%d' % l_end, {'type': 'no_blanks', 'format': border_format})
-            worksheet.conditional_format('A1:E%d' % l_end, {'type': 'blanks', 'format': blank_fmt})
+            worksheet.conditional_format('A3:F%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+            worksheet.conditional_format('A1:F%d' % l_end, {'type': 'blanks', 'format': blank_fmt})
 
             total_df = total_df.rename({'equipment_id': 'Tester', 'usage_time': 'Total Usage Time(H)',
                                         'total_weekday': total_weekday_label, 'percentage': 'Percenge'}, axis=1)
@@ -291,7 +292,7 @@ def get_use_detail(request):
 
             ndf = ndf.rename({'user_name': '使用人', 'project_name': '项目', 'equipment_id': '设备ID',
                               'equipment_name': '设备名称', 'start_time': '开始时间',
-                              'end_time': '结束时间', 'usage_time': '使用时长'}, axis=1)
+                              'end_time': '结束时间', 'usage_time': '使用时长(H)'}, axis=1)
             ndf.to_excel(writer, sheet_name='使用记录', header=False, index=False, startcol=0, startrow=1)
             worksheet = writer.sheets['使用记录']
             l_end = len(ndf.index) + 1
@@ -330,7 +331,7 @@ def get_maintenance_time(request):
                 end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
             total_weekday = calculate_datediff(start_time, end_time)  # 总工时
         else:
-            start_time, end_time = get_start_end('quarter')  # 按季度导出
+            start_time, end_time = get_start_end('quarter')  # 默认返回当前季度
             total_weekday = 625
         obj = obj.filter(Q(down_time__gte=start_time, up_time__lte=end_time) |
                          Q(down_time__range=[start_time, end_time]) | Q(up_time__range=[start_time, end_time]))
@@ -347,14 +348,10 @@ def get_maintenance_time(request):
         next_ls = list(ndf.loc[ndf['up_time'] > end_time].index)
         for index in next_ls:
             ndf['up_time'].iloc[index] = end_time
-        if maintenance_user:
-            total_df = ndf[['maintenance_user', 'equipment_id', 'maintenance_hours']]
-            total_df = total_df.groupby(['maintenance_user', 'equipment_id']).sum().reset_index()
-        else:
-            total_df = ndf[['equipment_id', 'maintenance_hours']]
-            total_df = total_df.groupby('equipment_id').sum().reset_index()
+        total_df = ndf[['equipment_id', 'equipment_name', 'maintenance_hours']]
+        total_df = total_df.groupby(['equipment_id', 'equipment_name']).sum().reset_index()
         total_df['total_weekday'] = total_weekday
-        total_df['percentage'] = total_df['maintenance_hours'] / total_df['total_weekday']
+        total_df['percentage'] = round(total_df['maintenance_hours'] / total_df['total_weekday'], 4)
         total_df['maintenance_hours'] = total_df['maintenance_hours'].map(lambda x: round(x, 2))
         operate = request.GET.get('operate', 'list')
         if operate == 'export':
@@ -373,8 +370,8 @@ def get_maintenance_time(request):
                  'bg_color': '#9FC3D1', 'valign': 'vcenter', 'align': 'center'})
             blank_fmt = workbook.add_format({'bold': False, 'bg_color': 'white'})
 
-            total_df = total_df.rename({'maintenance_user': '维修人', 'equipment_id': '设备ID',
-                                        'maintenance_hours': '维修时长', 'total_weekday': '有效工作时间',
+            total_df = total_df.rename({'equipment_id': '设备ID', 'equipment_name': '设备名称',
+                                        'maintenance_hours': '维修时长(H)', 'total_weekday': '总工时(H)',
                                         'percentage': '百分比'}, axis=1)
             total_df.to_excel(writer, sheet_name='维修记录', header=False, index=False, startcol=0, startrow=2)
             worksheet = writer.sheets['维修记录']
@@ -382,7 +379,9 @@ def get_maintenance_time(request):
             for col_num, value in enumerate(total_df.columns.values):
                 worksheet.write(1, col_num, value, title_fmt)
             worksheet.merge_range('A1:E1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
-            worksheet.set_column('A:E', 15.5, fmt)
+            worksheet.set_column('A:A', 20, fmt)
+            worksheet.set_column('B:B', 28, fmt)
+            worksheet.set_column('C:E', 15.5, fmt)
             worksheet.conditional_format('C3:C%d' % l_end, {'type': 'no_blanks', 'format': float_fmt})
             worksheet.conditional_format('D3:D%d' % l_end, {'type': 'no_blanks', 'format': amt_fmt})
             worksheet.conditional_format('E3:E%d' % l_end, {'type': 'cell', 'criteria': '>=', 'value': 0,
@@ -482,10 +481,10 @@ def get_equipment_fee(request):
         obj = obj.filter(Q(start_time__gte=start_time, actual_end_time__lte=end_time) |
                          Q(start_time__range=[start_time, end_time]) | Q(
             actual_end_time__range=[start_time, end_time]))
-        qs = obj.values('project__name', 'section__name', 'equipment_id', 'start_time', 'actual_end_time',
-                        'actual_usage_time', 'per_hour_price', 'total_amount')
-        if not qs:
+        if not obj:
             return REST_SUCCESS([])
+        qs = obj.values('project__name', 'section__name', 'equipment_id', 'equipment_name', 'start_time', 'actual_end_time',
+                        'actual_usage_time', 'per_hour_price', 'total_amount')
         df = pd.DataFrame(list(qs))
         ndf = df.rename({'project__name': 'project_name', 'section__name': 'section_name',
                          'actual_end_time': 'end_time', 'actual_usage_time': 'usage_time'}, axis=1)
@@ -493,12 +492,12 @@ def get_equipment_fee(request):
         ndf['per_hour_price'] = ndf['per_hour_price'].map(lambda x: float(x))
         ndf['total_amount'] = ndf['total_amount'].map(lambda x: float(x))
         ndf = get_usagetime(ndf, start_time, end_time)
-        tdf = ndf[['project_name', 'section_name', 'equipment_id', 'total_amount']]
-        tdf = tdf.groupby(['project_name', 'section_name', 'equipment_id']).sum().reset_index()
+        tdf = ndf[['project_name', 'section_name', 'equipment_id', 'equipment_name', 'total_amount']]
+        tdf = tdf.groupby(['project_name', 'section_name', 'equipment_id', 'equipment_name']).sum().reset_index()
         project_name_ls = [project_name for project_name in list(tdf['project_name'].unique())]
         project_name_ls.sort()
 
-        final_df = pd.DataFrame(columns=['project_name', 'section_name', 'equipment_id', 'total_amount'],
+        final_df = pd.DataFrame(columns=['project_name', 'section_name', 'equipment_id', 'equipment_name', 'total_amount'],
                                 dtype=object)
         for project_name in project_name_ls:
             ldf = tdf[tdf['project_name'] == project_name]
@@ -507,7 +506,7 @@ def get_equipment_fee(request):
             final_df = pd.concat([final_df, ldf], axis=0)
         final_df['total_amount'] = final_df['total_amount'].map(lambda x: round(x, 2))
         excel_df = final_df.rename({'project_name': '项目', 'section_name': '部门', 'equipment_id': '设备ID',
-                                    'total_amount': '费用'}, axis=1)
+                                    'equipment_name': '设备名称', 'total_amount': '费用'}, axis=1)
 
         operate = request.GET.get('operate', 'list')
         if operate == 'export':
@@ -528,12 +527,15 @@ def get_equipment_fee(request):
             worksheet = writer.sheets['项目费用']
             for col_num, value in enumerate(excel_df.columns.values):
                 worksheet.write(1, col_num, value, title_fmt)
-            worksheet.merge_range('A1:D1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
-            worksheet.set_column('A:D', 16.5, fmt)
-            worksheet.conditional_format('D3:D%d' % l_end, {'type': 'no_blanks', 'format': amt_fmt})
+            worksheet.merge_range('A1:E1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
+            worksheet.set_column('A:B', 16.5, fmt)
+            worksheet.set_column('B:B', 20, fmt)
+            worksheet.set_column('C:C', 25, fmt)
+            worksheet.set_column('D:E', 16.5, fmt)
+            worksheet.conditional_format('E3:E%d' % l_end, {'type': 'no_blanks', 'format': amt_fmt})
             # 加边框
-            worksheet.conditional_format('A1:D%d' % l_end, {'type': 'no_blanks', 'format': border_format})
-            worksheet.conditional_format('A1:D%d' % l_end, {'type': 'blanks', 'format': blank_fmt})
+            worksheet.conditional_format('A1:E%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+            worksheet.conditional_format('A1:E%d' % l_end, {'type': 'blanks', 'format': blank_fmt})
             writer.save()
             return create_excel_resp(file_path, '设备使用计费表')
         final_df.rename({'equipment_id': 'equipment'}, axis=1, inplace=True)

@@ -6,6 +6,7 @@ from users.models import User, Section, OperationLog, Role
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from rest_framework.relations import PrimaryKeyRelatedField
 
+import json
 import logging
 
 logger = logging.getLogger('django')
@@ -111,8 +112,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         validated_data['password'] = make_password(validated_data.get('password'))
-        standard_id = Group.objects.filter(name='standardUser').first().id
-        validated_data['roles'] = [{'id': standard_id, 'name': 'standardUser'}]
+        standard_id = Role.objects.filter(role_code='standardUser').first().id
+        validated_data['roles'] = json.dumps([{'id': standard_id, 'name': 'standardUser'}])
         # 创建User对象
         user = User.objects.create(**validated_data)
         return user

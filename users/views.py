@@ -19,8 +19,8 @@ from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
     GroupSerializer, RoleSerializer, OperateRoleSerializer
 from users.models import Section, User, OperationLog, Role
+from utils.log_utils import set_update_log, set_delete_log
 from utils.pagination import MyPagePagination
-from utils.log_utils import set_delete_log
 from lab_system_backend import settings
 
 import datetime
@@ -269,6 +269,27 @@ class UserListGeneric(generics.ListAPIView):
 class UserDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.filter(is_delete=False).all()
     serializer_class = UserSerializer
+
+    @set_update_log
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 class ChangePassword(APIView):

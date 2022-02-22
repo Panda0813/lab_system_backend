@@ -3,7 +3,7 @@ from django.db import connection, close_old_connections, transaction
 
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord, ExtendAttribute
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
-    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo
+    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo, EquipmentCalibrationCertificate
 
 import logging
 
@@ -198,6 +198,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     expect_usage_time = serializers.ReadOnlyField()
     actual_usage_time = serializers.ReadOnlyField()
     is_interrupted = serializers.ReadOnlyField()
+    total_amount = serializers.ReadOnlyField()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -208,7 +209,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
         model = EquipmentBorrowRecord
         fields = ('id', 'user', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name',
                   'borrow_type', 'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
-                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks',
+                  'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'total_amount', 'remarks',
                   'return_confirm_state', 'return_position')
 
         extra_kwargs = {
@@ -285,6 +286,12 @@ class OperateBrokenInfoSerializer(serializers.ModelSerializer):
         }
 
 
+class CalibrationCertificateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EquipmentCalibrationCertificate
+        field = ('id', 'equipment', 'certificate_year', 'certificate')
+
+
 class CalibrationInfoSerializer(serializers.ModelSerializer):
     due_date = serializers.ReadOnlyField()
     recalibration_time = serializers.ReadOnlyField()
@@ -293,7 +300,7 @@ class CalibrationInfoSerializer(serializers.ModelSerializer):
         model = EquipmentCalibrationInfo
         fields = ('id', 'equipment', 'equipment_name', 'equipment_state', 'specification', 'environment',
                   'calibration_cycle', 'calibration_time', 'recalibration_time', 'due_date',
-                  'state', 'remarks')
+                  'state', 'certificate_set', 'remarks')
         extra_kwargs = {
             'equipment': {
                 'label': '设备',

@@ -19,7 +19,7 @@ from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
     GroupSerializer, RoleSerializer, OperateRoleSerializer
 from users.models import Section, User, OperationLog, Role
-from utils.log_utils import set_update_log, set_delete_log
+from utils.log_utils import set_update_log, set_delete_log, set_create_log
 from utils.pagination import MyPagePagination
 from lab_system_backend import settings
 
@@ -106,8 +106,19 @@ class SectionDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
 
 
 class UserRegisterView(generics.CreateAPIView):
+    model = User
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     serializer_class = RegisterSerializer
     permission_classes = []
+
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 # 重写登录认证，实现手机号/工号/邮箱均可登录
@@ -225,13 +236,13 @@ class UserListGeneric(generics.ListAPIView):
         user_roles = [item['name'] for item in user_roles]
         if not user_roles:
             user_roles = ['standardUser']
-        if 'developer' in user_roles:
+        if 'developer' in user_roles or 'labManager' in user_roles:
             pass
-        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
-            queryset = queryset.filter(id=req_user.id)
         elif 'sectionManager' in user_roles:
             section_id = req_user.section_id
             queryset = queryset.filter(section_id=section_id)
+        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
+            queryset = queryset.filter(id=req_user.id)
         employee_no = request.GET.get('employee_no')
         if employee_no:
             queryset = queryset.filter(employee_no=employee_no)  # 精确查询
@@ -267,7 +278,10 @@ class UserListGeneric(generics.ListAPIView):
 
 
 class UserDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
-    queryset = User.objects.filter(is_delete=False).all()
+    model = User
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+    queryset = model.objects.filter(is_delete=False).all()
     serializer_class = UserSerializer
 
     @set_update_log
@@ -315,3 +329,22 @@ class OperationLogGeneric(generics.ListAPIView):
     queryset = OperationLog.objects.all().order_by('-create_time')
     serializer_class = OperationLogSerializer
     pagination_class = MyPagePagination
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        user_name = request.GET.get('user_name', '')
+        if user_name:
+            queryset = queryset.filter(user__username__contains=user_name)  # 精确查询
+
+        start_time = request.GET.get('start_time')
+        end_time = request.GET.get('end_time')
+        if start_time and end_time:
+            queryset = queryset.filter(create_time__range=[start_time, end_time])
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

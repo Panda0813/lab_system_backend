@@ -194,7 +194,7 @@ def get_usage_rate(request):
             worksheet.set_column('E:E', 22)
             worksheet.set_column('F:F', 14, float_fmt)
             # 加边框
-            worksheet.conditional_format('A3:F%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+            worksheet.conditional_format('A1:F%d' % l_end, {'type': 'no_blanks', 'format': border_format})
             worksheet.conditional_format('A1:F%d' % l_end, {'type': 'blanks', 'format': blank_fmt})
 
             total_df = total_df.rename({'equipment_id': 'Tester', 'usage_time': 'Total Usage Time(H)',
@@ -409,12 +409,12 @@ def get_broken_record(request):
         end_time = request.GET.get('end_time')
         if start_time and end_time:
             obj = obj.filter(broken_time__range=[start_time, end_time])
-        qs = obj.order_by('-create_time').values('equipment_id', 'user__username', 'section__name',
+        qs = obj.order_by('-create_time').values('equipment_id', 'user__username', 'user__section__name',
                                                  'broken_reason', 'broken_time')
         if not qs:
             return REST_SUCCESS([])
         df = pd.DataFrame(list(qs))
-        ndf = df.rename({'user__username': 'user_name', 'section__name': 'section_name'}, axis=1)
+        ndf = df.rename({'user__username': 'user_name', 'user__section__name': 'section_name'}, axis=1)
         ndf['broken_time'] = ndf['broken_time'].map(lambda x: x.strftime('%Y-%m-%d %H:%M:%S'))
         operate = request.GET.get('operate', 'list')
         if operate == 'export':
@@ -462,7 +462,7 @@ def get_equipment_fee(request):
             obj = obj.filter(project_id=project_id)
         section_id = request.GET.get('section')
         if section_id:
-            obj = obj.filter(section_id=section_id)
+            obj = obj.filter(user__section__id=section_id)
         equipment_id = request.GET.get('equipment')
         if equipment_id:
             obj = obj.filter(equipment_id=equipment_id)
@@ -483,10 +483,11 @@ def get_equipment_fee(request):
             actual_end_time__range=[start_time, end_time]))
         if not obj:
             return REST_SUCCESS([])
-        qs = obj.values('project__name', 'section__name', 'equipment_id', 'equipment_name', 'start_time', 'actual_end_time',
+        qs = obj.values('project__name', 'user__section__name', 'equipment_id', 'equipment__name', 'start_time', 'actual_end_time',
                         'actual_usage_time', 'per_hour_price', 'total_amount')
         df = pd.DataFrame(list(qs))
-        ndf = df.rename({'project__name': 'project_name', 'section__name': 'section_name',
+        ndf = df.rename({'project__name': 'project_name',
+                         'user__section__name': 'section_name', 'equipment__name': 'equipment_name',
                          'actual_end_time': 'end_time', 'actual_usage_time': 'usage_time'}, axis=1)
         ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x))
         ndf['per_hour_price'] = ndf['per_hour_price'].map(lambda x: float(x))
@@ -529,9 +530,9 @@ def get_equipment_fee(request):
                 worksheet.write(1, col_num, value, title_fmt)
             worksheet.merge_range('A1:E1', 'Begin: {}  End: {}'.format(start_time, end_time), note_fmt)
             worksheet.set_column('A:B', 16.5, fmt)
-            worksheet.set_column('B:B', 20, fmt)
-            worksheet.set_column('C:C', 25, fmt)
-            worksheet.set_column('D:E', 16.5, fmt)
+            worksheet.set_column('C:C', 20, fmt)
+            worksheet.set_column('D:D', 25, fmt)
+            worksheet.set_column('E:E', 16.5, fmt)
             worksheet.conditional_format('E3:E%d' % l_end, {'type': 'no_blanks', 'format': amt_fmt})
             # 加边框
             worksheet.conditional_format('A1:E%d' % l_end, {'type': 'no_blanks', 'format': border_format})

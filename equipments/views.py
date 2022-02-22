@@ -20,14 +20,17 @@ from equipments.serializers import CalibrationInfoSerializer, OperateCalibration
 from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSerializer, MaintainInfoSerializer
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
-    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo
-from equipments.ext_utils import analysis_equipment_data, create_excel_resp, analysis_calibration, analysis_maintain
+    EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo, EquipmentCalibrationCertificate
+from equipments.serializers import CalibrationCertificateSerializer
+from equipments.ext_utils import analysis_equipment_data, create_excel_resp, \
+    analysis_calibration, analysis_maintain, analysis_certificate
 from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS
 from utils.log_utils import set_create_log, set_update_log, set_delete_log, get_differ, save_operateLog
 from utils.pagination import MyPagePagination
 from utils.timedelta_utls import calculate_datediff, get_holiday, calculate_end_time, calculate_due_date, \
     calculate_recalibration_time, calculate_pm_time
 
+import json
 import re
 import datetime
 import pandas as pd
@@ -94,7 +97,14 @@ def get_category(request):
         {'id': 9, 'name': 'Facility Equipment & Tool'},
         {'id': 10, 'name': 'APT MB & SLT System'}]
     df1 = pd.DataFrame(categoryBase)
-    countqs = Equipment.objects.filter(is_delete=False).values('fixed_asset_category').annotate(count=Count('id')).all()
+    obj = Equipment.objects.filter(is_delete=False)
+    search = request.GET.get('search', '')
+    if search:
+        obj = obj.filter(Q(id=search) | Q(name__contains=search))
+    equipment_state = request.GET.get('equipment_state')
+    if equipment_state:
+        obj = obj.filter(equipment_state=equipment_state)
+    countqs = obj.values('fixed_asset_category').annotate(count=Count('id')).all()
     if countqs:
         countqs = list(countqs)
         df2 = pd.DataFrame(countqs)
@@ -473,11 +483,11 @@ class BorrowListGeneric(generics.ListCreateAPIView):
             user_roles = ['standardUser']
         if 'developer' in user_roles:
             pass
-        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
-            queryset = queryset.filter(user=req_user)
         elif 'sectionManager' in user_roles:
             section_id = req_user.section_id
             queryset = queryset.filter(user__section_id=section_id)
+        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
+            queryset = queryset.filter(user=req_user)
         equipment_id = request.GET.get('equipment', '')
         if equipment_id:
             queryset = queryset.filter(equipment_id=equipment_id)  # 精确查询
@@ -723,15 +733,15 @@ def get_AllowBorrowTime(request):
     equipment_id = request.GET.get('equipment')
     borrow_type = request.GET.get('borrow_type')
     if not equipment_id:
-        return VIEW_FAIL(msg='设备ID不能为空')
+        return REST_FAIL({'msg': '设备ID不能为空'})
     if not borrow_type:
-        return VIEW_FAIL(msg='借用类型不能为空')
+        return REST_FAIL({'msg': '借用类型不能为空'})
     equipment_qs = Equipment.objects.filter(id=equipment_id)
     if not equipment_qs:
-        return VIEW_FAIL(msg='找不到该设备')
+        return REST_FAIL({'msg': '找不到该设备'})
     equipment_state = equipment_qs.first().equipment_state
     if equipment_state not in [1, 2]:
-        return VIEW_FAIL('设备当前状态为{}, 暂时无法借用'.format(equipment_qs.first().get_equipment_state_display()))
+        return REST_FAIL({'msg': '设备当前状态为{}, 暂时无法借用'.format(equipment_qs.first().get_equipment_state_display())})
     borrow_time_limit = get_borrow_time_limit(equipment_id)
     last_borrow_end_time = borrow_time_limit['last_borrow_end_time']
     allow_borrow_days = borrow_time_limit['allow_borrow_days']
@@ -1156,6 +1166,181 @@ class OperateCalibrationInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
         due_date = calculate_due_date(recalibration_time, 'calibration')
         data.update({'due_date': due_date})
         serializer.validated_data.update(data)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
+
+
+# 插入校准报告数据
+def insert_certificate(datas):
+    insert_certificate_sql = '''insert into equipment_calibration_certificate(certificate_year, certificate, 
+                                    create_time, update_time, equipment_id)
+                                    values(%s, %s, %s, %s, %s)'''
+    update_certificate_sql = '''update equipment_calibration_certificate set certificate_year=%s,certificate=%s,
+                                    update_time=%s where id=%s'''
+    insert_certificate_ls = []
+    update_certificate_ls = []
+    count = 0
+    for data in datas:
+        now_ts = datetime.datetime.now()
+        count += 1
+        lineNo = count + 1
+        equipment_id = data.get('equipment_id')
+        if not equipment_id:
+            return VIEW_FAIL(msg='ID不能为空, 空值所在行: {}'.format(lineNo))
+        certificate_year = data.get('certificate_year')
+        if not certificate_year:
+            return VIEW_FAIL(msg='校准年份不能为空, 空值所在行: {}'.format(lineNo))
+        certificate = data.get('certificate')
+        id = data.get('id', '')
+        if id:
+            certificate_qs = EquipmentCalibrationCertificate.objects.filter(id=id)
+        else:
+            certificate_qs = EquipmentCalibrationCertificate.objects.filter(equipment_id=equipment_id,
+                                                                            certificate_year=certificate_year.strip())
+        if certificate_qs:
+            update_certificate_args = (certificate_year, certificate, now_ts, certificate_qs.first().id)
+            update_certificate_ls.append(update_certificate_args)
+        else:
+            insert_certificate_args = (certificate_year, certificate, now_ts, now_ts, equipment_id)
+            insert_certificate_ls.append(insert_certificate_args)
+
+        if len(insert_certificate_ls) + len(update_certificate_ls) >= 10:
+            execute_batch_sql(insert_certificate_sql, insert_certificate_ls)
+            execute_batch_sql(update_certificate_sql, update_certificate_ls)
+            insert_certificate_ls = []
+            update_certificate_ls = []
+
+    if len(insert_certificate_ls) + len(update_certificate_ls) > 0:
+        execute_batch_sql(insert_certificate_sql, insert_certificate_ls)
+        execute_batch_sql(update_certificate_sql, update_certificate_ls)
+
+
+# 批量导入校准报告
+@api_view(['POST'])
+def post_batch_certificate(request):
+    try:
+        try:
+            file = request.FILES.get('file', '')
+            if not file:
+                return VIEW_FAIL(msg='上传文件不能为空')
+            current_path = os.path.dirname(__file__)
+            file_dir_path = os.path.join(current_path, 'temporydata')
+            if not os.path.exists(file_dir_path):
+                os.mkdir(file_dir_path)
+            file_path = os.path.join(file_dir_path, 'UniIC_Calibration_Certificate.xlsx')
+            with open(file_path, 'wb') as f:
+                for i in file.chunks():
+                    f.write(i)
+        except Exception as e:
+            logger.error('解析文件出错, error:{}'.format(str(e)))
+            return VIEW_FAIL(msg='解析文件出错, error:{}'.format(str(e)))
+
+        df = pd.read_excel(file_path, sheet_name='Sheet1')
+        datas = df.to_dict('records')
+        datas = analysis_certificate(datas)
+        try:
+            insert_certificate(datas)
+        except Exception as e:
+            logger.error('校准报告插入数据库失败, error:{}'.format(str(e)))
+            error_code = e.args[0]
+            if error_code == 1111:
+                msg = e.args[1]
+                error = e.args[1]
+            else:
+                msg = '保存失败'
+                error = str(e)
+            return VIEW_FAIL(msg=msg, data={'error': error})
+        return VIEW_SUCCESS(msg='导入成功')
+    except Exception as e:
+        logger.error('校准报告导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='校准报告导入失败', data={'error': str(e)})
+
+
+# 新增校准报告
+@api_view(['POST'])
+def add_certificate(request):
+    try:
+        try:
+            req_dic = json.loads(request.body)
+        except Exception as e:
+            return REST_FAIL({'msg': '请求参数解析错误,请确认格式正确后上传', 'error': str(e)})
+        del_ls = req_dic.get('del_ls', [])
+        certificate_ls = req_dic.get('certificate_ls', [])
+        if not certificate_ls:
+            return REST_FAIL({'msg': '报告信息不能为空'})
+        close_old_connections()
+        with transaction.atomic():
+            save_id = transaction.savepoint()
+            try:
+                if del_ls:
+                    EquipmentCalibrationCertificate.objects.filter(id__in=del_ls).delete()
+                insert_certificate(certificate_ls)
+                transaction.savepoint_commit(save_id)
+            except Exception as e:
+                transaction.savepoint_rollback(save_id)
+                logger.error('校准报告插入数据库失败, error:{}'.format(str(e)))
+                error_code = e.args[0]
+                if error_code == 1111:
+                    msg = e.args[1]
+                    error = e.args[1]
+                else:
+                    msg = '保存失败'
+                    error = str(e)
+                return REST_FAIL({'msg': msg, 'error': error})
+        return REST_SUCCESS({'msg': '操作成功'})
+    except Exception as e:
+        logger.error('校准报告新增失败, error:{}'.format(str(e)))
+        return REST_FAIL({'msg': '校准报告新增失败', 'error': str(e)})
+
+
+# 校准报告
+class CertificateGeneric(generics.ListCreateAPIView):
+    model = EquipmentCalibrationCertificate
+    queryset = model.objects.all().order_by('certificate_year')
+    serializer_class = CalibrationCertificateSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        equipment_id = request.GET.get('equipment', '')
+        if equipment_id:
+            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class OperateCertificateGeneric(generics.RetrieveUpdateDestroyAPIView):
+    model = EquipmentCalibrationCertificate
+    queryset = model.objects.all().order_by('certificate_year')
+    serializer_class = CalibrationCertificateSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+
+    @set_update_log
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):

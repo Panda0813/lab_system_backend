@@ -154,7 +154,6 @@ def analysis_equipment_data(datas):
     ndf['install_date'] = ndf['install_date'].apply(trans_float_ts, args=('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S'))
     # ndf['calibration_time'] = ndf['calibration_time'].apply(trans_float_ts, args=('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'))
     # ndf['recalibration_time'] = ndf['recalibration_time'].apply(trans_float_ts, args=('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'))
-    # ndf['certificate_year'] = ndf['certificate_year'].map(lambda x: str(int(x)) if x else '')
     ndf['name'] = ndf['name'].map(lambda x: re.sub(r'/r|/n|\n', '', x) if x else x)
     ndf['serial_number'] = ndf['serial_number'].map(lambda x: re.sub(r' |/r|/n|\n', '', str(x)) if x else x)
     ndf['deposit_position'] = ndf['deposit_position'].map(lambda x: re.sub(r' |/r|/n|\n', '', x) if x else x)
@@ -205,6 +204,29 @@ def analysis_calibration(datas):
     ndf['calibration_cycle'] = ndf['calibration_cycle'].map(lambda x: int(re.sub(r' |/r|/n|\n', '', str(x))) if x else x)
     ndf['calibration_time'] = ndf['calibration_time'].apply(trans_float_ts, args=('%Y-%m-%d', '%Y-%m-%d'))
     ndf['calibration_time'] = ndf['calibration_time'].map(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').date() if x else x)
+    ndf = ndf.replace({np.nan: None})
+    datas = ndf.to_dict('records')
+    return datas
+
+
+certificate_columns_map = {
+    'ID': 'equipment_id',
+    '校准年份': 'certificate_year',
+    '校准报告': 'certificate'
+}
+
+
+def analysis_certificate(datas):
+    if not datas:
+        return []
+    df = pd.DataFrame(datas)
+    df = df[list(certificate_columns_map.keys())]
+    df.rename(columns=certificate_columns_map, inplace=True)
+    df = df.replace({np.nan: None})
+    ndf = df.copy()
+    ndf['equipment_id'] = ndf['equipment_id'].map(lambda x: str(x).strip() if x else x)
+    ndf['equipment_id'] = ndf['equipment_id'].map(lambda x: re.sub(r'|/r|/n|\n', '', x) if x else x)
+    ndf['certificate_year'] = ndf['certificate_year'].map(lambda x: str(int(x)).strip() if x else '')
     ndf = ndf.replace({np.nan: None})
     datas = ndf.to_dict('records')
     return datas

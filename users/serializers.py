@@ -6,6 +6,8 @@ from users.models import User, Section, OperationLog, Role
 from rest_framework_jwt.serializers import jwt_payload_handler, jwt_encode_handler
 from rest_framework.relations import PrimaryKeyRelatedField
 
+from decimal import Decimal
+import datetime
 import json
 import logging
 
@@ -140,3 +142,10 @@ class OperationLogSerializer(serializers.ModelSerializer):
         model = OperationLog
         fields = ('id', 'table_name', 'operate', 'user_id', 'user_name', 'reason', 'before',
                   'after', 'change', 'create_time')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['before'] = eval(data['before']) if data['before'] else data['before']
+        data['after'] = eval(data['after']) if data['after'] else data['after']
+        data['change'] = eval(data['change']) if data['change'] else data['change']
+        return data

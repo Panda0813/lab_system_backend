@@ -29,10 +29,11 @@ class UserManager(BaseUserManager):
 
     # 创建超级用户
     def create_superuser(self, telephone, username, password, **kwargs):
-        developer_id = Group.objects.filter(name='developer').first().id
-        kwargs['roles'] = [{'id': developer_id, 'name': 'developer'}]
+        developer_role = Role.objects.get(name='developer')
         kwargs['is_superuser'] = True
-        return self._create_user(telephone, username, password, **kwargs)
+        user = self._create_user(telephone, username, password, **kwargs)
+        developer_role.users.add(user)
+        return user
 
 
 class Section(models.Model):
@@ -72,7 +73,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
-    roles = models.TextField(verbose_name='拥有角色', null=True, blank=True)
 
     USERNAME_FIELD = 'username'  # authenticate 进行验证的字段
     # createsuperuser命令输入的字段，django默认需要输入密码，所以不用指定要password
@@ -98,6 +98,10 @@ class User(AbstractBaseUser, PermissionsMixin):
             return self.section.name
         else:
             return None
+
+    @property
+    def role_set(self):
+        return self.role_set
 
     def delete(self, using=None, keep_parents=False):
         self.is_delete = True
@@ -125,6 +129,7 @@ class Role(models.Model):
     role_code = models.CharField(verbose_name='角色编码', max_length=50)
     name = models.CharField(verbose_name='角色名称', max_length=50)
     routes = models.TextField(verbose_name='角色权限', null=True)
+    users = models.ManyToManyField(User)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
 
@@ -132,10 +137,3 @@ class Role(models.Model):
         db_table = 'role'
         verbose_name = '角色权限表'
         verbose_name_plural = verbose_name
-
-    @property
-    def group_name(self):
-        if self.group:
-            return self.group.name
-        else:
-            return None

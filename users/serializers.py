@@ -42,7 +42,7 @@ class RoleSerializer(serializers.ModelSerializer):
                 }
             },
             'role_code': {
-                'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
+                'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该编码已存在')],
                 'error_messages': {
                     'blank': '角色编码[code]不能为空',
                     'required': '角色编码[code]为必填项'
@@ -114,10 +114,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         validated_data['password'] = make_password(validated_data.get('password'))
-        standard_id = Role.objects.filter(role_code='standardUser').first().id
-        validated_data['roles'] = json.dumps([{'id': standard_id, 'name': 'standardUser'}])
+        standard_role = Role.objects.get(role_code='standardUser')
         # 创建User对象
         user = User.objects.create(**validated_data)
+        standard_role.users.add(user)
         return user
 
 
@@ -126,9 +126,28 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name', 'roles')
+        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name', 'role_set')
 
     def update(self, instance, validated_data):
+        role_set = validated_data.pop('role_set', [])
+        new_role_id = []
+        if role_set:
+            new_role_id = [r.id for r in role_set]
+        old_role = instance.role_set.values('id')
+        old_role_id = []
+        if old_role:
+            old_role_id = [r['id'] for r in list(old_role)]
+        if list(set(old_role_id) ^ set(new_role_id)):
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    instance.role_set.clear()
+                    instance.role_set.add(*new_role_id)
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('角色存储失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('角色存储失败')
         if instance.password != validated_data.get('password'):
             validated_data['password'] = make_password(validated_data.get('password'))
         return super(UserSerializer, self).update(instance, validated_data)

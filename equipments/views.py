@@ -475,13 +475,11 @@ class BorrowListGeneric(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         req_user = request.user
-        user_roles = req_user.roles
-        if isinstance(user_roles, str):
-            user_roles = eval(user_roles)
-        user_roles = [item['name'] for item in user_roles]
+        user_roles = req_user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
         if not user_roles:
             user_roles = ['standardUser']
-        if 'developer' in user_roles:
+        if 'developer' in user_roles or 'labManager' in user_roles:
             pass
         elif 'sectionManager' in user_roles:
             section_id = req_user.section_id

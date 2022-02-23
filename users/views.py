@@ -43,10 +43,8 @@ class RoleListGeneric(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         req_user = request.user
-        user_roles = req_user.roles
-        if isinstance(user_roles, str):
-            user_roles = eval(user_roles)
-        user_roles = [item['name'] for item in user_roles]
+        user_roles = req_user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
         if not user_roles:
             user_roles = ['standardUser']
         if 'developer' not in user_roles and 'labManager' in user_roles:
@@ -148,15 +146,12 @@ class LoginView(ObtainAuthToken):
                     token = Token.objects.create(user=user)
                     token.created = datetime.datetime.utcnow()
                     token.save()
-                groups = Group.objects.filter(user=user)
-                roles = [group.name for group in groups]
                 res_data = {}
                 res_data['user_id'] = user.id
                 res_data['username'] = user.username
                 res_data['employee_no'] = user.employee_no
                 res_data['token'] = token.key
                 res_data['is_superuser'] = user.is_superuser
-                res_data['roles'] = roles
                 return Response(res_data)
         except:
             return Response({'msg': '账号或密码错误'}, status=status.HTTP_400_BAD_REQUEST)
@@ -230,10 +225,8 @@ class UserListGeneric(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         req_user = request.user
-        user_roles = req_user.roles
-        if isinstance(user_roles, str):
-            user_roles = eval(user_roles)
-        user_roles = [item['name'] for item in user_roles]
+        user_roles = req_user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
         if not user_roles:
             user_roles = ['standardUser']
         if 'developer' in user_roles or 'labManager' in user_roles:

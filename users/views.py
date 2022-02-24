@@ -3,7 +3,6 @@ from django.db.models import Q
 from django.db import transaction
 from django.http import QueryDict
 from django.utils import timezone
-from django.contrib.auth.models import Group
 from rest_framework.views import APIView
 from rest_framework import filters
 from rest_framework.decorators import api_view
@@ -17,7 +16,7 @@ from rest_framework_jwt.views import ObtainJSONWebToken, api_settings, jwt_respo
 from utils.permission import IsActiveUserOrReadOnly, IsSuperUserOrReadOnly, IsActiveUser
 from equipments.ext_utils import REST_SUCCESS, REST_FAIL
 from users.serializers import RegisterSerializer, SectionSerializer, UserSerializer, OperationLogSerializer, \
-    GroupSerializer, RoleSerializer, OperateRoleSerializer
+   RoleSerializer, OperateRoleSerializer
 from users.models import Section, User, OperationLog, Role
 from utils.log_utils import set_update_log, set_delete_log, set_create_log
 from utils.pagination import MyPagePagination
@@ -29,11 +28,6 @@ import logging
 logger = logging.getLogger('django')
 
 EXPIRE_DAYS = getattr(settings, 'TOKEN_EXPIRE_DAYS')
-
-
-class GroupListGeneric(generics.ListCreateAPIView):
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
 
 
 class RoleListGeneric(generics.ListCreateAPIView):
@@ -70,11 +64,9 @@ class RoleDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     @set_delete_log
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        group = instance.group
         with transaction.atomic():
             save_id = transaction.savepoint()
             try:
-                Group.objects.filter(id=group.id).delete()
                 self.perform_destroy(instance)
                 transaction.savepoint_commit(save_id)
             except Exception as e:

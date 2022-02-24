@@ -1,5 +1,4 @@
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import Group
 from django.db import transaction
 from rest_framework import serializers, validators
 from users.models import User, Section, OperationLog, Role
@@ -12,21 +11,6 @@ import json
 import logging
 
 logger = logging.getLogger('django')
-
-
-class GroupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Group
-        fields = ('id', 'name', )
-        extra_kwargs = {
-            'name': {
-                'validators': [validators.UniqueValidator(queryset=Group.objects.all(), message='该名称已存在')],
-                'error_messages': {
-                    'blank': '角色编码不能为空',
-                    'required': '角色编码为必填项'
-                }
-            }
-        }
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -52,7 +36,6 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class OperateRoleSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Role
         fields = ('id', 'name', 'routes')

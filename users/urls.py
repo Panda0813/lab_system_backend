@@ -12,7 +12,6 @@ urlpatterns = [
     # url(r'^login$', views.LoginView.as_view()),
     url(r'^logout$', views.LogoutView.as_view()),
     url(r'^register$', views.UserRegisterView.as_view()),
-    url(r'^groups$', views.GroupListGeneric.as_view()),
     url(r'^roles$', views.RoleListGeneric.as_view()),
     url(r'^roles/(?P<pk>[0-9]+)', views.RoleDetailGeneric.as_view()),
     url(r'^sections$', views.SectionListGeneric.as_view()),

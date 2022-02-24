@@ -14,7 +14,7 @@ class UserManager(BaseUserManager):
     实现User的object功能
     """
     def get_queryset(self):
-        return super(UserManager, self).get_queryset().filter(is_delete=False)
+        return super(UserManager, self).get_queryset()
 
     def _create_user(self, telephone, username, password, **kwargs):
         user = self.model(telephone=telephone, username=username, **kwargs)

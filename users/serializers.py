@@ -88,9 +88,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'telephone', 'employee_no', 'email', 'password', 'password_confirm', 'section', 'section_name')
         extra_kwargs = {
             'username': {
+                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该用户名称已存在')],
                 'error_messages': {
                     'blank': '用户名称[username]不能为空',
                     'required': '用户名称[username]为必填项'
+                }
+            },
+            'employee_no': {
+                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该工号已存在')],
+                'error_messages': {
+                    'blank': '工号[employee_no]不能为空',
+                    'required': '工号[employee_no]为必填项'
                 }
             },
             'password': {

@@ -52,11 +52,10 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class OperateRoleSerializer(serializers.ModelSerializer):
-    group_name = serializers.ReadOnlyField()
 
     class Meta:
         model = Role
-        fields = ('id', 'name', 'group_name', 'routes')
+        fields = ('id', 'name', 'routes')
 
 
 class SectionSerializer(serializers.ModelSerializer):

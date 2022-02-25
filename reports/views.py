@@ -100,6 +100,7 @@ def get_usage_rate(request):
                          'user__username': 'user_name', 'equipment__name': 'equipment_name'}, axis=1)
         ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x))
         ndf = get_usagetime(ndf, start_time, end_time)
+        ndf = ndf[ndf['usage_time'] > 0]
 
         # 按设备统计明细
         mdf = ndf[['equipment_id', 'equipment_name', 'user_name', 'start_time', 'end_time', 'usage_time']]
@@ -276,6 +277,7 @@ def get_use_detail(request):
         ndf['start_time'] = ndf['start_time'].map(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if x else x)
         ndf['end_time'] = ndf['end_time'].map(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if x else x)
         ndf = ndf[['user_name', 'project_name', 'equipment_id', 'equipment_name', 'start_time', 'end_time', 'usage_time']]
+        ndf = ndf[ndf['usage_time'] > 0]
         operate = request.GET.get('operate', 'list')
         if operate == 'export':
             file_path = get_file_path('detail')

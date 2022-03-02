@@ -255,7 +255,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
     model = Equipment
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
-    queryset = model.objects.filter(is_delete=False).all().order_by('fixed_asset_category')
+    queryset = model.objects.filter(is_delete=False).all().order_by('create_time')
     serializer_class = EquipmentSerializer
     pagination_class = MyPagePagination
 
@@ -282,7 +282,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             queryset = queryset.exclude(id__in=maintain_qs)
         fixed_asset_category = request.GET.get('fixed_asset_category')
         if fixed_asset_category:
-            queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category)).order_by('-create_time')
+            queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category))
 
         page = self.paginate_queryset(queryset)
         if page is not None:

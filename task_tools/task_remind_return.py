@@ -2,6 +2,7 @@
 from django.db import connection, transaction, close_old_connections
 from task_tools.task_utils import CronTaskObj
 from equipments.ext_utils import dictfetchall
+from utils.email_utils import send_mail
 
 import traceback
 import logging
@@ -14,7 +15,7 @@ class RemindReturnTask:
         self.final_remind_days = 1  # 到期前一天提醒
 
     def begin_task(self):
-        remind_seconds = self.final_remind_days * 24 * 60 * 60
+        remind_seconds = 60 * 60
         # query_sql = '''select id, user_id, equipment_id, is_borrow, is_return, end_time, is_final_remind,
         #                     is_overtime_remind,round((julianday(strftime('%Y-%m-%d %H:%M:%S',end_time)) -
         #                       julianday(strftime('%Y-%m-%d %H:%M:%S', datetime('now', 'localtime')))) * 86400, 2)
@@ -32,7 +33,7 @@ class RemindReturnTask:
             cursor.execute(query_sql)
             need_remind_qs = dictfetchall(cursor)
         if need_remind_qs:
-            from users.models import User
+            from users.models import User, Role
             from equipments.models import EquipmentBorrowRecord
             for q in need_remind_qs:
                 borrow_id = q['id']
@@ -50,18 +51,35 @@ class RemindReturnTask:
                         if 0 < delta_seconds < remind_seconds and is_final_remind is False:
                             # TODO 发邮件给使用者
                             user = User.objects.get(id=user_id)
-                            EquipmentBorrowRecord.objects.filter(id=borrow_id).update(is_final_remind=True)
+                            borrow_qs = EquipmentBorrowRecord.objects.filter(id=borrow_id)
+                            info = '即将到期'
+                            to = [user.email]
+                            send_mail(to, [], info, borrow_qs.first())
+                            borrow_qs.update(is_final_remind=True)
                         elif delta_seconds < 0 and is_overtime_remind is False:  # 超时
                             # TODO 发邮件给使用者,抄送section manager、下一位借用者、实验室管理员，提示设备仪表超时未还
-                            # 查询下一位用户
                             user = User.objects.get(id=user_id)
+                            to = [user.email]
+
+                            # 查询下一位用户
                             next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=end_time,
                                                                                 equipment_id=equipment_id,
                                                                                 is_borrow=False, is_delete=False,
                                                                                 is_approval=True).order_by('id')
                             if next_user_qs:
                                 next_user = next_user_qs.first().user
-                            EquipmentBorrowRecord.objects.filter(id=borrow_id).update(is_overtime_remind=True)
+                            borrow_qs = EquipmentBorrowRecord.objects.filter(id=borrow_id)
+                            info = '已经逾期'
+                            # 查询需要抄送的用户
+                            need_cc_users = User.objects.filter(is_delete=False, need_cc=True).values()
+                            need_cc_email = [item['email'] for item in list(need_cc_users)]
+                            # 查询所在部门其他用户
+                            section_users = Role.objects.filter(role_code='sectionManager').first().\
+                                            users.filter(is_delete=False, section_id=user.section_id).values()
+                            section_email = [item['email'] for item in list(section_users)]
+                            cc = list(set(need_cc_email + section_email))
+                            send_mail(to, cc, info, borrow_qs.first())
+                            borrow_qs.update(is_overtime_remind=True)
                         transaction.savepoint_commit(save_id)
                     except Exception as e:
                         transaction.savepoint_rollback(save_id)

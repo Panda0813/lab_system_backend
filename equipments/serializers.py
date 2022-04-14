@@ -13,7 +13,7 @@ logger = logging.getLogger('django')
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ('id', 'name')
+        fields = ('id', 'name', 'is_active')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Project.objects.all(), message='该名称已存在')],

@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from equipments.models import EquipmentBorrowRecord, EquipmentMaintenanceRecord, EquipmentBrokenInfo
 from reports.time_utils import get_start_end
 from utils.timedelta_utls import calculate_datediff
-from equipments.ext_utils import REST_SUCCESS, REST_FAIL, create_suffix, create_excel_resp
+from equipments.ext_utils import REST_SUCCESS, REST_FAIL, create_suffix, create_excel_resp, get_file_path
 from utils.permission import IsSuperUser
 
 import pandas as pd
@@ -22,17 +22,6 @@ import traceback
 import logging
 
 logger = logging.getLogger('django')
-
-
-def get_file_path(prefix):
-    current_path = os.path.dirname(__file__)
-    file_dir = os.path.join(current_path, 'report_files')
-    if not os.path.exists(file_dir):
-        os.mkdir(file_dir)
-
-    file_name = '{}-{}'.format(prefix, create_suffix())
-    file_path = os.path.join(file_dir, file_name)
-    return file_path
 
 
 # 根据开始结束时间，得出记录在此区间内的使用时长

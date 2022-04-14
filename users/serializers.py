@@ -16,7 +16,7 @@ logger = logging.getLogger('django')
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
-        fields = ('id', 'name', 'role_code', 'routes')
+        fields = ('id', 'name', 'role_code', 'routes', 'create_role')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
@@ -64,10 +64,12 @@ class RegisterSerializer(serializers.ModelSerializer):
                                                  'min_length': '仅允许6~20个字符的确认密码',
                                                  'max_length': '仅允许6~20个字符的确认密码'
                                              })
+    department = serializers.CharField(label='部门名称',write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'telephone', 'employee_no', 'email', 'password', 'password_confirm', 'section', 'section_name')
+        fields = ('id', 'username', 'telephone', 'employee_no', 'email', 'password', 'password_confirm', 'section',
+                  'section_name', 'login_id', 'department')
         extra_kwargs = {
             'username': {
                 'validators': [validators.UniqueValidator(queryset=User.objects.all(), message='该用户名称已存在')],
@@ -103,6 +105,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
+        validated_data.pop('department')
         validated_data['password'] = make_password(validated_data.get('password'))
         standard_role = Role.objects.get(role_code='standardUser')
         # 创建User对象
@@ -116,7 +119,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name', 'role_set')
+        fields = ('id', 'username', 'telephone', 'employee_no', 'password', 'email', 'section', 'section_name',
+                  'role_set', 'need_cc', 'is_superuser', 'login_id')
 
     def update(self, instance, validated_data):
         role_set = validated_data.pop('role_set', [])

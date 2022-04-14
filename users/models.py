@@ -73,10 +73,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
+    need_cc = models.BooleanField(default=False, verbose_name='是否需要抄送')
+    login_id = models.CharField(verbose_name='oa登录名', max_length=30, null=True)
+    pwd_status = models.IntegerField(verbose_name='密码状态', default=0)  # 0 初始密码, 1 密码已修改，2 密码快到期
 
     USERNAME_FIELD = 'username'  # authenticate 进行验证的字段
     # createsuperuser命令输入的字段，django默认需要输入密码，所以不用指定要password
-    REQUIRED_FIELDS = ['telephone', 'employee_no', 'email']
+    REQUIRED_FIELDS = ['telephone', 'employee_no', 'email', 'login_id']
     EMAIL_FILED = 'email'  # 指定发送邮箱
 
     objects = UserManager()  # 存入model
@@ -132,6 +135,8 @@ class Role(models.Model):
     users = models.ManyToManyField(User)
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
+    remarks = models.TextField(verbose_name='备注', null=True)
+    create_role = models.CharField(verbose_name='该角色创建者', max_length=50, null=True)
 
     class Meta:
         db_table = 'role'

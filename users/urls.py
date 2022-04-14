@@ -21,4 +21,6 @@ urlpatterns = [
     url(r'^change-password$', views.ChangePassword.as_view()),
     url(r'^operation-log$', views.OperationLogGeneric.as_view()),
     url(r'^username-exist$', views.query_username_exist),
+    url(r'^get-oa-users$', views.query_oa_user_list),
+    url(r'^get-oa-sections$', views.query_oa_sections),
 ]

@@ -19,6 +19,8 @@ def jwt_response_payload_handler(token, user=None, request=None):
             'username': user.username,
             'employee_no': user.employee_no,
             'is_superuser': user.is_superuser,
+            'login_id': user.login_id,
+            'pwd_status': user.pwd_status,
         },
         'token': 'JWT ' + token,
         'roles': roles,

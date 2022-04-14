@@ -42,7 +42,7 @@ logger = logging.getLogger('django')
 
 # 新增项目
 class ProjectListGeneric(generics.ListCreateAPIView):
-    queryset = Project.objects.all()
+    queryset = Project.objects.all().order_by('name')
     serializer_class = ProjectSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -103,7 +103,8 @@ def get_category(request):
         obj = obj.filter(Q(id=search) | Q(name__contains=search))
     equipment_state = request.GET.get('equipment_state')
     if equipment_state:
-        obj = obj.filter(equipment_state=equipment_state)
+        equipment_state_ls = equipment_state.split(',')
+        obj = obj.filter(equipment_state__in=equipment_state_ls)
     countqs = obj.values('fixed_asset_category').annotate(count=Count('id')).all()
     if countqs:
         countqs = list(countqs)
@@ -257,7 +258,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
     verbose_name = model._meta.verbose_name
     queryset = model.objects.filter(is_delete=False).all().order_by('create_time')
     serializer_class = EquipmentSerializer
-    pagination_class = MyPagePagination
+    # pagination_class = MyPagePagination
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -266,7 +267,8 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             queryset = queryset.filter(Q(id=search) | Q(name__contains=search))
         equipment_state = request.GET.get('equipment_state')
         if equipment_state:
-            queryset = queryset.filter(equipment_state=equipment_state)
+            equipment_state_ls = equipment_state.split(',')
+            queryset = queryset.filter(equipment_state__in=equipment_state_ls)
         borrow_tag = request.GET.get('borrow_tag')
         if borrow_tag:
             queryset = queryset.filter(equipment_state__in=[1, 2])
@@ -1073,7 +1075,7 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
     model = EquipmentCalibrationInfo
     queryset = model.objects.all().order_by('create_time')
     serializer_class = CalibrationInfoSerializer
-    pagination_class = MyPagePagination
+    # pagination_class = MyPagePagination
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
 
@@ -1358,7 +1360,7 @@ class OperateCertificateGeneric(generics.RetrieveUpdateDestroyAPIView):
 class MaintenanceGeneric(generics.ListCreateAPIView):
     queryset = EquipmentMaintenanceRecord.objects.all().order_by('-create_time')
     serializer_class = MaintenanceSerializer
-    pagination_class = MyPagePagination
+    # pagination_class = MyPagePagination
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -1523,7 +1525,7 @@ class MaintainInfoGeneric(generics.ListCreateAPIView):
     model = EquipmentMaintainInfo
     queryset = model.objects.all().order_by('create_time')
     serializer_class = MaintainInfoSerializer
-    pagination_class = MyPagePagination
+    # pagination_class = MyPagePagination
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
 

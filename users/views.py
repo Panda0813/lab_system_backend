@@ -1,5 +1,6 @@
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.http import QueryDict
 from django.utils import timezone
@@ -20,8 +21,10 @@ from users.serializers import RegisterSerializer, SectionSerializer, UserSeriali
 from users.models import Section, User, OperationLog, Role
 from utils.log_utils import set_update_log, set_delete_log, set_create_log
 from utils.pagination import MyPagePagination
-from lab_system_backend import settings
+from lab_system_backend import settings, mssql_conn
+from utils.conn_mssql import get_oa_users, get_oa_sections
 
+import traceback
 import datetime
 import logging
 
@@ -31,20 +34,38 @@ EXPIRE_DAYS = getattr(settings, 'TOKEN_EXPIRE_DAYS')
 
 
 class RoleListGeneric(generics.ListCreateAPIView):
-    queryset = Role.objects.all()
+    model = Role
+    queryset = model.objects.all()
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     serializer_class = RoleSerializer
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        distribute = request.GET.get('distribute')
         req_user = request.user
         user_roles = req_user.role_set.values('id', 'role_code')
         user_roles = [item['role_code'] for item in list(user_roles)]
         if not user_roles:
             user_roles = ['standardUser']
-        if 'developer' not in user_roles and 'labManager' in user_roles:
-            queryset = queryset.exclude(role_code='developer')
+        if 'developer' not in user_roles:
+            if 'labManager' in user_roles and 'gcManager' in user_roles:
+                queryset = queryset.filter(create_role__in=['labManager', 'gcManager', 'publicUser'])
+                if distribute:
+                    queryset = queryset.exclude(role_code__in=['labManager', 'gcManager'])
+            elif 'labManager' in user_roles:
+                queryset = queryset.filter(create_role__in=['labManager', 'publicUser'])
+                if distribute:
+                    queryset = queryset.exclude(role_code='labManager')
+            elif 'gcManager' in user_roles:
+                queryset = queryset.filter(create_role__in=['gcManager', 'publicUser'])
+                if distribute:
+                    queryset = queryset.exclude(role_code='gcManager')
+            else:
+                queryset = QueryDict([])
         elif 'developer' in user_roles:
-            pass
+            if distribute:
+                queryset = queryset.exclude(role_code='developer')
         else:
             queryset = QueryDict([])
 
@@ -56,9 +77,32 @@ class RoleListGeneric(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data.copy()
+        user_roles = request.user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
+        create_role = None
+        if 'developer' not in user_roles:
+            if 'labManager' in user_roles:
+                create_role = 'labManager'
+            elif 'gcManager' in user_roles:
+                create_role = 'gcManager'
+        if create_role:
+            data.update({'create_role': create_role})
+        serializer.validated_data.update(data)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class RoleDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Role.objects.all()
+    model = Role
+    queryset = model.objects.all()
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     serializer_class = OperateRoleSerializer
 
     @set_delete_log
@@ -105,8 +149,23 @@ class UserRegisterView(generics.CreateAPIView):
     @set_create_log
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        employee_no = request.data.get('employee_no')
+        exist_qs = User.objects.filter(employee_no=employee_no)
+        if exist_qs:
+            serializer.is_valid(raise_exception=False)
+            exist_qs.update(password=make_password(request.data.get('password')), pwd_status=0, is_delete=False)
+        else:
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data.copy()
+            section_name = data.get('department')
+            section_qs = Section.objects.filter(name=section_name)
+            if section_qs:
+                data.update({'section': section_qs.first()})
+            else:
+                obj = Section.objects.create(name=section_name)
+                data.update({'section': obj})
+            serializer.validated_data.update(data)
+            self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -212,7 +271,7 @@ class UserListGeneric(generics.ListAPIView):
     queryset = User.objects.all().filter(is_delete=False).order_by('-register_time')
     serializer_class = UserSerializer
     permission_classes = [IsActiveUser]
-    pagination_class = MyPagePagination
+    # pagination_class = MyPagePagination
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -221,13 +280,17 @@ class UserListGeneric(generics.ListAPIView):
         user_roles = [item['role_code'] for item in list(user_roles)]
         if not user_roles:
             user_roles = ['standardUser']
-        if 'developer' in user_roles or 'labManager' in user_roles:
+        if 'developer' in user_roles:
             pass
+        elif 'gcManager' in user_roles or 'labManager' in user_roles:
+            queryset = queryset.filter(is_superuser=False)
         elif 'sectionManager' in user_roles:
             section_id = req_user.section_id
-            queryset = queryset.filter(section_id=section_id)
+            queryset = queryset.filter(is_superuser=False).filter(section_id=section_id)
         elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
-            queryset = queryset.filter(id=req_user.id)
+            queryset = queryset.filter(is_superuser=False).filter(id=req_user.id)
+        else:
+            queryset = queryset.filter(is_superuser=False)
         employee_no = request.GET.get('employee_no')
         if employee_no:
             queryset = queryset.filter(employee_no=employee_no)  # 精确查询
@@ -294,20 +357,22 @@ class UserDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
 class ChangePassword(APIView):
     def post(self, request):
         user = request.user
-        ipassword = request.data['ipassword']
+        if user.pwd_status != 0:
+            ipassword = request.data['ipassword']
+            if not ipassword:
+                return REST_FAIL({'msg': '原密码[ipassword]不能为空'})
+            if not user.check_password(ipassword):
+                return REST_FAIL({"msg": "原密码错误"})
         password = request.data['password']
-        if not ipassword:
-            return REST_FAIL({'msg': '原密码[ipassword]不能为空'})
         if not password:
             return REST_FAIL({'msg': '新密码[password]不能为空'})
-        if user.check_password(ipassword):
-            if len(password) > 20 or len(password) < 6:
-                return REST_FAIL({'msg': "仅允许6~20个字符的新密码"})
-            user.set_password(password)
-            user.save()
-            return REST_SUCCESS({"msg": "修改成功"})
-        else:
-            return REST_FAIL({"msg": "原密码错误"})
+        if len(password) < 8:
+            return REST_FAIL({'msg': "仅允许至少8位以上密码, 必须同时包含字母、数字和特殊字符"})
+        user.set_password(password)
+        if user.pwd_status == 0:
+            user.pwd_status = 1
+        user.save()
+        return REST_SUCCESS({"msg": "修改成功"})
 
 
 class OperationLogGeneric(generics.ListAPIView):
@@ -333,3 +398,25 @@ class OperationLogGeneric(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+# 查询oa用户
+@api_view(['GET'])
+def query_oa_user_list(request):
+    try:
+        total, users = get_oa_users(request)
+        return REST_SUCCESS({'count': total, 'results': users})
+    except Exception as e:
+        logger.error('查询失败, error: {}'.format(traceback.format_exc()))
+        return REST_FAIL({'msg': '查询失败, error: {}'.format(str(e))})
+
+
+# 查询所有部门
+@api_view(['GET'])
+def query_oa_sections(request):
+    try:
+        sections = get_oa_sections()
+        return REST_SUCCESS(sections)
+    except Exception as e:
+        logger.error('查询失败, error: {}'.format(traceback.format_exc()))
+        return REST_FAIL({'msg': '查询失败, error: {}'.format(str(e))})

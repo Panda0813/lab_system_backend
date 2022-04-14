@@ -5,6 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from xlrd import xldate_as_tuple
 from django.db import connection
 
+import os
 import re
 import pandas as pd
 import numpy as np
@@ -277,3 +278,14 @@ def create_excel_resp(file_path, filename):
     response['Content-Type'] = 'application/vnd.ms-excel;charset=UTF-8'
     response['Content-Disposition'] = 'attachment;filename="' + urlquote(filename) + '.xlsx"'
     return response
+
+
+def get_file_path(prefix, dir_name='report_files'):
+    current_path = os.path.dirname(__file__)
+    file_dir = os.path.join(current_path, dir_name)
+    if not os.path.exists(file_dir):
+        os.mkdir(file_dir)
+
+    file_name = '{}-{}'.format(prefix, create_suffix())
+    file_path = os.path.join(file_dir, file_name)
+    return file_path

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'reports',
     'rest_framework_swagger',
+    'gc_foundry',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -150,22 +151,22 @@ WSGI_APPLICATION = 'lab_system_backend.wsgi.application'
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    # },
     'default': {
-        'ENGINE': 'sql_server.pyodbc',
-        'NAME': 'UNIIC_LABTEST',
-        'HOST': '172.21.12.104',
-        'PORT': 1433,
-        'USER': 'DBConUser',
-        'PASSWORD': 'Uniic8253Yw#',
-        'OPTIONS': {
-            'driver': 'ODBC Driver 11 for SQL Server',
-            'MARS_Connection': True,
-        },
-    }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    },
+    # 'default': {
+    #     'ENGINE': 'sql_server.pyodbc',
+    #     'NAME': 'UNIIC_LABTEST',
+    #     'HOST': '172.21.12.104',
+    #     'PORT': 1433,
+    #     'USER': 'DBConUser',
+    #     'PASSWORD': 'Uniic8253Yw#',
+    #     'OPTIONS': {
+    #         'driver': 'ODBC Driver 11 for SQL Server',
+    #         'MARS_Connection': True,
+    #     },
+    # }
 }
 
 
@@ -259,3 +260,18 @@ LOGGING = {
         }
     }
 }
+
+# 邮件发送配置
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_USE_SSL = True
+EMAIL_HOST = 'smtp.263.net'  # 如果是 163 改成 smtp.163.com
+EMAIL_PORT = 465
+EMAIL_HOST_USER = 'uniic_lab_bot@unisemicon.com'  # 帐号
+EMAIL_HOST_PASSWORD = 'lab123'   # 密码
+EMAIL_FROM = '<uniic_module_robot@unisemicon.com>'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# 图片资源
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

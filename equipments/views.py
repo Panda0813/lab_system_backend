@@ -533,7 +533,7 @@ class BorrowListGeneric(generics.ListCreateAPIView):
         borrow_type = data.get('borrow_type')
 
         equipment = data.get('equipment')
-        if equipment.equipment_state != 1:
+        if equipment.equipment_state not in [1, 2]:
             raise serializers.ValidationError('设备当前状态为{}, 暂时无法借用'.format(equipment.get_equipment_state_display()))
         if borrow_type in ['正常申请', '恢复中断']:  # 判断选择的日期是否在设备可借用时间内
             borrow_time_limit = get_borrow_time_limit(equipment.id)

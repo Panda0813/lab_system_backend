@@ -382,9 +382,22 @@ class OperationLogGeneric(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        user_name = request.GET.get('user_name', '')
-        if user_name:
-            queryset = queryset.filter(user__username__contains=user_name)  # 精确查询
+        operate = request.GET.get('operate')
+        if operate:
+            queryset = queryset.filter(operate=operate)  # 精确查询
+
+        fuzzy_params = {}
+        fuzzy_params['user_name'] = request.GET.get('user_name', '')
+        fuzzy_params['table_name'] = request.GET.get('table_name', '')
+
+        filter_params = {}
+        for k, v in fuzzy_params.items():
+            if v != None and v != '':
+                k = k + '__contains'
+                filter_params[k] = v
+
+        if filter_params:
+            queryset = queryset.filter(**filter_params)
 
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')

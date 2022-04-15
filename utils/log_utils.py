@@ -52,7 +52,8 @@ def set_update_log(func):
         after = self.get_serializer(after_instance).data
         change = get_differ(before, after)
 
-        save_operateLog('update', request.user, self.table_name, self.verbose_name, before, after, change)
+        if change:
+            save_operateLog('update', request.user, self.table_name, self.verbose_name, before, after, change)
         return res
     return wrapper
 

@@ -212,10 +212,14 @@ class FoundryEquipmentList(generics.ListCreateAPIView):
         category = request.GET.get('category', '')
         if category:
             queryset = queryset.filter(category=category)
+        factory = request.GET.get('factory', '')
+        if factory:
+            queryset = queryset.filter(factory=factory)
 
         fuzzy_params = {}
         fuzzy_params['purchase_order_no'] = request.GET.get('purchase_order_no', '')
         fuzzy_params['name'] = request.GET.get('name', '')
+        fuzzy_params['supplier'] = request.GET.get('supplier', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -234,6 +238,7 @@ class FoundryEquipmentList(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @set_create_log
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -270,13 +275,9 @@ class FoundryEquipmentDetail(generics.RetrieveUpdateAPIView):
         data = serializer.validated_data.copy()
         number = data.get('number')
         price = data.get('price')
-        currency = data.get('currency')
-        exchange_rate = currency.exchange_rate
         if number and price:
             total_amount = int(number) * float(price)
-            base_total_amount = round(total_amount / float(exchange_rate), 2)
             data.update({'total_amount': total_amount})
-            data.update({'base_total_amount': base_total_amount})
         serializer.validated_data.update(data)
         self.perform_update(serializer)
 
@@ -301,10 +302,14 @@ class FoundryToolingList(generics.ListCreateAPIView):
         category = request.GET.get('category', '')
         if category:
             queryset = queryset.filter(category=category)
+        factory = request.GET.get('factory', '')
+        if factory:
+            queryset = queryset.filter(factory=factory)
 
         fuzzy_params = {}
         fuzzy_params['purchase_order_no'] = request.GET.get('purchase_order_no', '')
         fuzzy_params['name'] = request.GET.get('name', '')
+        fuzzy_params['supplier'] = request.GET.get('supplier', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -323,6 +328,7 @@ class FoundryToolingList(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @set_create_log
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -359,13 +365,9 @@ class FoundryToolingDetail(generics.RetrieveUpdateAPIView):
         data = serializer.validated_data.copy()
         number = data.get('number')
         price = data.get('price')
-        currency = data.get('currency')
-        exchange_rate = currency.exchange_rate
         if number and price:
             total_amount = int(number) * float(price)
-            base_total_amount = round(total_amount / float(exchange_rate), 2)
             data.update({'total_amount': total_amount})
-            data.update({'base_total_amount': base_total_amount})
         serializer.validated_data.update(data)
         self.perform_update(serializer)
 

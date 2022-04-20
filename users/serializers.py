@@ -16,7 +16,7 @@ logger = logging.getLogger('django')
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
-        fields = ('id', 'name', 'role_code', 'routes', 'create_role')
+        fields = ('id', 'name', 'role_code', 'routes', 'belong_sys')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],
@@ -107,10 +107,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         validated_data.pop('department')
         validated_data['password'] = make_password(validated_data.get('password'))
-        standard_role = Role.objects.get(role_code='standardUser')
         # 创建User对象
         user = User.objects.create(**validated_data)
-        standard_role.users.add(user)
         return user
 
 

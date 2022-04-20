@@ -136,7 +136,7 @@ class Role(models.Model):
     create_time = models.DateTimeField(verbose_name='添加时间', auto_now_add=True)
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
     remarks = models.TextField(verbose_name='备注', null=True)
-    create_role = models.CharField(verbose_name='该角色创建者', max_length=50, null=True)
+    belong_sys = models.CharField(verbose_name='角色所属系统', max_length=50, null=True)
 
     class Meta:
         db_table = 'role'

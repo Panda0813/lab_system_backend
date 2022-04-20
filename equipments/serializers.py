@@ -382,3 +382,16 @@ class MaintainInfoSerializer(serializers.ModelSerializer):
                 }
             }
         }
+
+
+class OperateMaintainInfoSerializer(serializers.ModelSerializer):
+    due_date = serializers.ReadOnlyField()
+    pm_q1 = serializers.ReadOnlyField()
+    pm_q2 = serializers.ReadOnlyField()
+    pm_q3 = serializers.ReadOnlyField()
+    pm_q4 = serializers.ReadOnlyField()
+
+    class Meta:
+        model = EquipmentMaintainInfo
+        fields = ('id', 'equipment', 'equipment_name', 'equipment_state', 'calibration_time', 'recalibration_time',
+                  'due_date', 'pm_q1', 'pm_q2', 'pm_q3', 'pm_q4', 'remarks')

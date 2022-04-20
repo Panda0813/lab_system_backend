@@ -17,7 +17,8 @@ from equipments.serializers import BorrowRecordSerializer, OperateBorrowRecordSe
 from equipments.serializers import ReturnApplySerializer, OperateReturnApplySerializer
 from equipments.serializers import BrokenInfoSerializer, OperateBrokenInfoSerializer
 from equipments.serializers import CalibrationInfoSerializer, OperateCalibrationSerializer
-from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSerializer, MaintainInfoSerializer
+from equipments.serializers import MaintenanceSerializer, OperateMaintenanceSerializer, \
+    MaintainInfoSerializer, OperateMaintainInfoSerializer
 from equipments.models import Project, Equipment, EquipmentDepreciationRecord
 from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, EquipmentBrokenInfo, \
     EquipmentCalibrationInfo, EquipmentMaintenanceRecord, EquipmentMaintainInfo, EquipmentCalibrationCertificate
@@ -355,6 +356,7 @@ class EquipmentDetail(APIView):
             return REST_SUCCESS({'msg': '找不到该设备'})
         before = EquipmentSerializer(equipment).data
         extendattribute_set = request.data.pop('extendattribute_set', [])
+        equipment_state = request.data.get('equipment_state', 0)
         serializer = EquipmentSerializer(equipment, data=request.data)
         if serializer.is_valid(raise_exception=True):
             if Equipment.objects.filter(pk=equipment_id).first().is_delete:
@@ -375,6 +377,15 @@ class EquipmentDetail(APIView):
                         ExtendAttribute.objects.create(equipment_id=equipment_id,
                                                        attribute_name=attribute_name,
                                                        attribute_value=attribute_value).save()
+            if equipment_state != equipment.equipment_state and int(equipment_state) == 4:
+                EquipmentMaintainInfo.objects.filter(equipment_id=equipment_id).update(calibration_time=None,
+                                                                                       recalibration_time=None,
+                                                                                       due_date=None,
+                                                                                       pm_q1=None,
+                                                                                       pm_q2=None,
+                                                                                       pm_q3=None,
+                                                                                       pm_q4=None,
+                                                                                       update_time=datetime.datetime.now())
             after = serializer.data
             change = get_differ(before, after)
             save_operateLog('update', request.user, self.table_name, self.verbose_name, before, after, change)
@@ -476,18 +487,6 @@ class BorrowListGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        req_user = request.user
-        user_roles = req_user.role_set.values('id', 'role_code')
-        user_roles = [item['role_code'] for item in list(user_roles)]
-        if not user_roles:
-            user_roles = ['standardUser']
-        if 'developer' in user_roles or 'labManager' in user_roles:
-            pass
-        elif 'sectionManager' in user_roles:
-            section_id = req_user.section_id
-            queryset = queryset.filter(user__section_id=section_id)
-        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
-            queryset = queryset.filter(user=req_user)
         equipment_id = request.GET.get('equipment', '')
         if equipment_id:
             queryset = queryset.filter(equipment_id=equipment_id)  # 精确查询
@@ -1031,6 +1030,7 @@ def post_calibration(request):
                     except:
                         calibration_state = '待送检'
                 else:
+                    calibration_time = None
                     recalibration_time = None
                     due_date = None
                     calibration_state = None
@@ -1055,7 +1055,7 @@ def post_calibration(request):
                 execute_batch_sql(insert_calibration_sql, insert_calibration_ls)
                 execute_batch_sql(update_calibration_sql, update_calibration_ls)
         except Exception as e:
-            logger.error('校准规范插入数据库失败, error:{}'.format(str(e)))
+            logger.error('校准要求插入数据库失败, error:{}'.format(str(e)))
             error_code = e.args[0]
             if error_code == 1111:
                 msg = e.args[1]
@@ -1066,8 +1066,8 @@ def post_calibration(request):
             return VIEW_FAIL(msg=msg, data={'error': error})
         return VIEW_SUCCESS(msg='导入成功')
     except Exception as e:
-        logger.error('校准规范导入失败, error:{}'.format(str(e)))
-        return VIEW_FAIL(msg='校准规范导入失败', data={'error': str(e)})
+        logger.error('校准要求导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='校准要求导入失败', data={'error': str(e)})
 
 
 # 校验记录
@@ -1253,7 +1253,7 @@ def post_batch_certificate(request):
         try:
             insert_certificate(datas)
         except Exception as e:
-            logger.error('校准报告插入数据库失败, error:{}'.format(str(e)))
+            logger.error('校准记录插入数据库失败, error:{}'.format(str(e)))
             error_code = e.args[0]
             if error_code == 1111:
                 msg = e.args[1]
@@ -1264,8 +1264,8 @@ def post_batch_certificate(request):
             return VIEW_FAIL(msg=msg, data={'error': error})
         return VIEW_SUCCESS(msg='导入成功')
     except Exception as e:
-        logger.error('校准报告导入失败, error:{}'.format(str(e)))
-        return VIEW_FAIL(msg='校准报告导入失败', data={'error': str(e)})
+        logger.error('校准记录导入失败, error:{}'.format(str(e)))
+        return VIEW_FAIL(msg='校准记录导入失败', data={'error': str(e)})
 
 
 # 新增校准报告
@@ -1279,7 +1279,7 @@ def add_certificate(request):
         del_ls = req_dic.get('del_ls', [])
         certificate_ls = req_dic.get('certificate_ls', [])
         if not certificate_ls:
-            return REST_FAIL({'msg': '报告信息不能为空'})
+            return REST_FAIL({'msg': '记录信息不能为空'})
         close_old_connections()
         with transaction.atomic():
             save_id = transaction.savepoint()
@@ -1290,7 +1290,7 @@ def add_certificate(request):
                 transaction.savepoint_commit(save_id)
             except Exception as e:
                 transaction.savepoint_rollback(save_id)
-                logger.error('校准报告插入数据库失败, error:{}'.format(str(e)))
+                logger.error('校准记录插入数据库失败, error:{}'.format(str(e)))
                 error_code = e.args[0]
                 if error_code == 1111:
                     msg = e.args[1]
@@ -1301,8 +1301,8 @@ def add_certificate(request):
                 return REST_FAIL({'msg': msg, 'error': error})
         return REST_SUCCESS({'msg': '操作成功'})
     except Exception as e:
-        logger.error('校准报告新增失败, error:{}'.format(str(e)))
-        return REST_FAIL({'msg': '校准报告新增失败', 'error': str(e)})
+        logger.error('校准记录新增失败, error:{}'.format(str(e)))
+        return REST_FAIL({'msg': '校准记录新增失败', 'error': str(e)})
 
 
 # 校准报告
@@ -1482,6 +1482,8 @@ def post_maintain(request):
                     due_date = calculate_due_date(recalibration_time, 'maintain')
                     pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
                 else:
+                    calibration_time = None
+                    recalibration_time = None
                     due_date = None
                     pm_q1, pm_q2, pm_q3, pm_q4 = None, None, None, None
                 maintain_qs = EquipmentMaintainInfo.objects.filter(equipment_id=equipment_id)
@@ -1561,14 +1563,15 @@ class MaintainInfoGeneric(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         recalibration_time = data.get('recalibration_time')
-        due_date = calculate_due_date(recalibration_time, 'maintain')
-        data.update({'due_date': due_date})
-        pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
-        data.update({'pm_q1': pm_q1})
-        data.update({'pm_q2': pm_q2})
-        data.update({'pm_q3': pm_q3})
-        data.update({'pm_q4': pm_q4})
-        serializer.validated_data.update(data)
+        if recalibration_time:
+            due_date = calculate_due_date(recalibration_time, 'maintain')
+            data.update({'due_date': due_date})
+            pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
+            data.update({'pm_q1': pm_q1})
+            data.update({'pm_q2': pm_q2})
+            data.update({'pm_q3': pm_q3})
+            data.update({'pm_q4': pm_q4})
+            serializer.validated_data.update(data)
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -1578,7 +1581,7 @@ class MaintainInfoGeneric(generics.ListCreateAPIView):
 class OperateMaintainInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
     model = EquipmentMaintainInfo
     queryset = model.objects.all()
-    serializer_class = MaintainInfoSerializer
+    serializer_class = OperateMaintainInfoSerializer
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
 
@@ -1590,14 +1593,15 @@ class OperateMaintainInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data.copy()
         recalibration_time = data.get('recalibration_time')
-        due_date = calculate_due_date(recalibration_time, 'maintain')
-        data.update({'due_date': due_date})
-        pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
-        data.update({'pm_q1': pm_q1})
-        data.update({'pm_q2': pm_q2})
-        data.update({'pm_q3': pm_q3})
-        data.update({'pm_q4': pm_q4})
-        serializer.validated_data.update(data)
+        if recalibration_time:
+            due_date = calculate_due_date(recalibration_time, 'maintain')
+            data.update({'due_date': due_date})
+            pm_q1, pm_q2, pm_q3, pm_q4 = calculate_pm_time(recalibration_time)
+            data.update({'pm_q1': pm_q1})
+            data.update({'pm_q2': pm_q2})
+            data.update({'pm_q3': pm_q3})
+            data.update({'pm_q4': pm_q4})
+            serializer.validated_data.update(data)
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):

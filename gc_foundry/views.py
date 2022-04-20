@@ -39,7 +39,8 @@ def get_map_options(request):
     tooling_category = [
         {'value': 1, 'label': '测试配件'},
         {'value': 2, 'label': '测试板'},
-        {'value': 3, 'label': '探针卡'}
+        {'value': 3, 'label': '探针卡'},
+        {'value': 4, 'label': '探针卡+清针片'}
     ]
     fixed_asset = [
         {'value': 1, 'label': '是'},

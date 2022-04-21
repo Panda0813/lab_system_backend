@@ -281,7 +281,7 @@ class UserListGeneric(generics.ListAPIView):
             pass
         elif 'gcManager' in user_roles or 'labManager' in user_roles:
             queryset = queryset.filter(is_superuser=False)
-        elif 'sectionManager' in user_roles:
+        elif 'labSectionManager' in user_roles:
             section_id = req_user.section_id
             queryset = queryset.filter(is_superuser=False).filter(section_id=section_id)
         elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:

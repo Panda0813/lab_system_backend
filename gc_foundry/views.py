@@ -518,9 +518,9 @@ def export_equipment_list(request):
         if not qs:
             return REST_SUCCESS([])
         df = pd.DataFrame(list(qs))
-        df['price'] = df['price'].map(lambda x: float(x))
-        df['total_amount'] = df['total_amount'].map(lambda x: float(x))
-        df['currency__exchange_rate'] = df['currency__exchange_rate'].map(lambda x: float(x))
+        df['price'] = df['price'].map(lambda x: float(x) if x else x)
+        df['total_amount'] = df['total_amount'].map(lambda x: float(x) if x else x)
+        df['currency__exchange_rate'] = df['currency__exchange_rate'].map(lambda x: float(x) if x else x)
         df['base_total_amount'] = round(df['total_amount'] / df['currency__exchange_rate'], 2)
         ndf = df[['purchase_order_no', 'supplier', 'name', 'category', 'project__name', 'number', 'unit', 'price',
                   'total_amount', 'currency__name', 'base_total_amount', 'factory__name', 'assort_material',
@@ -630,9 +630,9 @@ def export_tooling_list(request):
         if not qs:
             return REST_SUCCESS([])
         df = pd.DataFrame(list(qs))
-        df['price'] = df['price'].map(lambda x: float(x))
-        df['total_amount'] = df['total_amount'].map(lambda x: float(x))
-        df['currency__exchange_rate'] = df['currency__exchange_rate'].map(lambda x: float(x))
+        df['price'] = df['price'].map(lambda x: float(x) if x else x)
+        df['total_amount'] = df['total_amount'].map(lambda x: float(x) if x else x)
+        df['currency__exchange_rate'] = df['currency__exchange_rate'].map(lambda x: float(x) if x else x)
         df['base_total_amount'] = round(df['total_amount'] / df['currency__exchange_rate'], 2)
         ndf = df[['purchase_order_no', 'supplier', 'name', 'category', 'project__name', 'number', 'unit', 'price',
                   'total_amount', 'currency__name', 'base_total_amount', 'factory__name', 'used_machine',

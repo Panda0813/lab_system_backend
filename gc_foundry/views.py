@@ -539,7 +539,9 @@ def export_equipment_list(request):
         }
         ndf['category'] = ndf['category'].map(machine_category)
         ndf['unit'] = ndf['unit'].map(unit_type)
-        order_count = len(list(ndf['purchase_order_no'].unique()))
+        order_list = ndf['purchase_order_no'].unique().tolist()
+        order_list.remove(None)
+        order_count = len(order_list)
         base_amount_sum = ndf['base_total_amount'].sum()
         rename_maps = {
             'purchase_order_no': '采购订单编号',
@@ -658,7 +660,9 @@ def export_tooling_list(request):
             else:
                 return None
         ndf['used_machine'] = ndf['used_machine'].map(join_used_machine)
-        order_count = len(list(ndf['purchase_order_no'].unique()))
+        order_list = ndf['purchase_order_no'].unique().tolist()
+        order_list.remove(None)
+        order_count = len(order_list)
         base_amount_sum = ndf['base_total_amount'].sum()
         rename_maps = {
             'purchase_order_no': '采购订单编号',

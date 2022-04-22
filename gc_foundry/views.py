@@ -63,8 +63,11 @@ def get_map_options(request):
 
 # 新增货币种类
 class CurrencyListGeneric(generics.ListCreateAPIView):
-    queryset = Currency.objects.all()
+    model = Currency
+    queryset = model.objects.all()
     serializer_class = CurrencySerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'short_name']
 
@@ -84,8 +87,11 @@ class CurrencyDetailGeneric(generics.RetrieveUpdateAPIView):
 
 # 新增工厂
 class FactoryListGeneric(generics.ListCreateAPIView):
-    queryset = Factory.objects.all()
+    model = Factory
+    queryset = model.objects.all()
     serializer_class = FactorySerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -142,8 +148,11 @@ class FactoryDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
 
 
 class ModelListGeneric(generics.ListCreateAPIView):
-    queryset = MachineModel.objects.all()
+    model = MachineModel
+    queryset = model.objects.all()
     serializer_class = MachineModelSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -226,8 +235,11 @@ def upload_image(request):
 
 # 新增测试机台
 class FoundryEquipmentList(generics.ListCreateAPIView):
-    queryset = FoundryEquipment.objects.all().order_by('-create_time')
+    model = FoundryEquipment
+    queryset = model.objects.all().order_by('-create_time')
     serializer_class = FoundryEquipmentSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -316,8 +328,11 @@ class FoundryEquipmentDetail(generics.RetrieveUpdateAPIView):
 
 # 新增器材配件
 class FoundryToolingList(generics.ListCreateAPIView):
-    queryset = FoundryTooling.objects.all().order_by('-create_time')
+    model = FoundryTooling
+    queryset = model.objects.all().order_by('-create_time')
     serializer_class = FoundryToolingSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())

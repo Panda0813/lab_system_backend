@@ -1358,8 +1358,11 @@ class OperateCertificateGeneric(generics.RetrieveUpdateDestroyAPIView):
 
 
 class MaintenanceGeneric(generics.ListCreateAPIView):
-    queryset = EquipmentMaintenanceRecord.objects.all().order_by('-create_time')
+    model = EquipmentMaintenanceRecord
+    queryset = model.objects.all().order_by('-create_time')
     serializer_class = MaintenanceSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
     # pagination_class = MyPagePagination
 
     def list(self, request, *args, **kwargs):

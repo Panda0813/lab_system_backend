@@ -350,9 +350,6 @@ class OperateMaintenanceSerializer(serializers.ModelSerializer):
                   'down_time', 'up_time', 'maintenance_hours', 'maintenance_user',
                   'broken_part_code', 'broken_part_cost', 'remarks')
         extra_kwargs = {
-            'user': {
-                'read_only': True
-            },
             'equipment': {
                 'read_only': True
             }

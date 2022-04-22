@@ -21,7 +21,7 @@ from users.serializers import RegisterSerializer, SectionSerializer, UserSeriali
 from users.models import Section, User, OperationLog, Role
 from utils.log_utils import set_update_log, set_delete_log, set_create_log
 from utils.pagination import MyPagePagination
-from lab_system_backend import settings, mssql_conn
+from lab_system_backend import settings
 from utils.conn_mssql import get_oa_users, get_oa_sections
 
 import traceback

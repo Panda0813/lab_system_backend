@@ -68,6 +68,14 @@ class CurrencyListGeneric(generics.ListCreateAPIView):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'short_name']
 
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class CurrencyDetailGeneric(generics.RetrieveUpdateAPIView):
     queryset = Currency.objects.all()
@@ -94,6 +102,14 @@ class FactoryListGeneric(generics.ListCreateAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class FactoryDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
@@ -130,6 +146,14 @@ class ModelListGeneric(generics.ListCreateAPIView):
     serializer_class = MachineModelSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
+
+    @set_create_log
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ModelDetailGeneric(generics.RetrieveUpdateDestroyAPIView):

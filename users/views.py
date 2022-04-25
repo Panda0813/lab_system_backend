@@ -156,6 +156,10 @@ class UserRegisterView(generics.CreateAPIView):
         if exist_qs:
             serializer.is_valid(raise_exception=False)
             exist_qs.update(password=make_password(request.data.get('password')), pwd_status=0, is_delete=False)
+            new_data = {'id': exist_qs.first().id}
+            new_data.update(serializer.data)
+            headers = self.get_success_headers(serializer.data)
+            return Response(new_data, status=status.HTTP_201_CREATED, headers=headers)
         else:
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data.copy()
@@ -168,8 +172,8 @@ class UserRegisterView(generics.CreateAPIView):
                 data.update({'section': obj})
             serializer.validated_data.update(data)
             self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 # 重写登录认证，实现手机号/工号/邮箱均可登录

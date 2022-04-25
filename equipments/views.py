@@ -201,7 +201,7 @@ def post_EquipmentData(request):
                 manufacture_date = data.get('manufacture_date')
                 origin_place = data.get('origin_place')
 
-                existqs = Equipment.objects.filter(id=equipment_id, is_delete=False)  # 判断设备是否存在，存在则更新
+                existqs = Equipment.objects.filter(id=equipment_id)  # 判断设备是否存在，存在则更新
                 if existqs:
                     update_equipment_args = (name, number, serial_number, fixed_asset_code, fixed_asset_category,
                                              custodian, equipment_state, service_type, specification, performance,

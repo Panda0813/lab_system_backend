@@ -13,6 +13,7 @@ urlpatterns = [
     url(r'^tooling$', views.FoundryToolingList.as_view()),
     url(r'^tooling/(?P<pk>[0-9]+)$', views.FoundryToolingDetail.as_view()),
     url(r'^transfer$', views.FoundryTransferList.as_view()),
+    url(r'^transfer/(?P<pk>[0-9]+)$', views.FoundryTransferDetail.as_view()),
     url(r'^export-equipment-list$', views.export_equipment_list),
     url(r'^export-tooling-list$', views.export_tooling_list),
 ]

@@ -24,6 +24,7 @@ from utils.pagination import MyPagePagination
 from lab_system_backend import settings
 from utils.conn_mssql import get_oa_users, get_oa_sections
 
+import re
 import traceback
 import datetime
 import logging
@@ -50,10 +51,14 @@ class RoleListGeneric(generics.ListCreateAPIView):
             user_roles = ['standardUser']
         if not distribute:
             if 'developer' not in user_roles:
-                if 'labManager' in user_roles:
-                    queryset = queryset.filter(belong_sys='lab')
-                elif 'gcManager' in user_roles:
-                    queryset = queryset.filter(belong_sys='gc')
+                managerRoles = list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles))
+                tag_ls = []
+                for role_name in managerRoles:
+                    rep = re.findall(r'(.*?)Manager', role_name)
+                    if rep:
+                        tag_ls.append(rep[0])
+                if len(tag_ls) > 0:
+                    queryset = queryset.filter(belong_sys__in=tag_ls)
                 else:
                     queryset = QueryDict([])
             elif 'developer' in user_roles:
@@ -279,7 +284,7 @@ class UserListGeneric(generics.ListAPIView):
             user_roles = ['standardUser']
         if 'developer' in user_roles:
             pass
-        elif 'gcManager' in user_roles or 'labManager' in user_roles:
+        elif list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles)):
             queryset = queryset.filter(is_superuser=False)
         elif 'labSectionManager' in user_roles:
             section_id = req_user.section_id

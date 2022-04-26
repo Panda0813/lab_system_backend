@@ -117,10 +117,10 @@ class Equipment(models.Model):
         (10, 'APT MB & SLT System')
     )
     EQUIPMENT_STATES = (
-        (1, '待用'),
+        (1, '可用'),
         (2, '使用中'),
         (3, '维护中'),
-        (4, '闲置'),
+        (4, '停用'),
         (5, '代管'),
         (6, '报废')
     )

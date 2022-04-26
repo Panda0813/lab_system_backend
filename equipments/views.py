@@ -58,10 +58,10 @@ class ProjectDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['GET'])
 def get_map_options(request):
     equipment_state = [
-        {'value': 1, 'label': '待用'},
+        {'value': 1, 'label': '可用'},
         {'value': 2, 'label': '使用中'},
         {'value': 3, 'label': '维护中'},
-        {'value': 4, 'label': '闲置'},
+        {'value': 4, 'label': '停用'},
         {'value': 5, 'label': '代管'},
         {'value': 6, 'label': '报废'}]
     service_type = [

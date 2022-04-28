@@ -87,7 +87,7 @@ def get_usage_rate(request):
         df = pd.DataFrame(list(borrow_record_qs))
         ndf = df.rename({'actual_end_time': 'end_time', 'actual_usage_time': 'usage_time',
                          'user__username': 'user_name', 'equipment__name': 'equipment_name'}, axis=1)
-        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x))
+        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x) if x else x)
         ndf = get_usagetime(ndf, start_time, end_time)
         ndf = ndf[ndf['usage_time'] > 0]
 
@@ -260,7 +260,7 @@ def get_use_detail(request):
         ndf = df.rename({'actual_end_time': 'end_time', 'actual_usage_time': 'usage_time',
                          'user__username': 'user_name', 'equipment__name': 'equipment_name',
                          'project__name': 'project_name'}, axis=1)
-        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x))
+        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x) if x else x)
         if start_time and end_time:
             ndf = get_usagetime(ndf, start_time, end_time)
         ndf['start_time'] = ndf['start_time'].map(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if x else x)
@@ -332,7 +332,7 @@ def get_maintenance_time(request):
             return REST_SUCCESS([])
         df = pd.DataFrame(list(qs))
         ndf = df.rename({'equipment__name': 'equipment_name'}, axis=1)
-        ndf['maintenance_hours'] = ndf['maintenance_hours'].map(lambda x: float(x))
+        ndf['maintenance_hours'] = ndf['maintenance_hours'].map(lambda x: float(x) if x else x)
         last_ls = list(ndf.loc[ndf['down_time'] < start_time].index)
         for index in last_ls:
             ndf['down_time'].iloc[index] = start_time
@@ -480,9 +480,9 @@ def get_equipment_fee(request):
         ndf = df.rename({'project__name': 'project_name',
                          'user__section__name': 'section_name', 'equipment__name': 'equipment_name',
                          'actual_end_time': 'end_time', 'actual_usage_time': 'usage_time'}, axis=1)
-        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x))
-        ndf['per_hour_price'] = ndf['per_hour_price'].map(lambda x: float(x))
-        ndf['total_amount'] = ndf['total_amount'].map(lambda x: float(x))
+        ndf['usage_time'] = ndf['usage_time'].map(lambda x: float(x) if x else x)
+        ndf['per_hour_price'] = ndf['per_hour_price'].map(lambda x: float(x) if x else x)
+        ndf['total_amount'] = ndf['total_amount'].map(lambda x: float(x) if x else x)
         ndf = get_usagetime(ndf, start_time, end_time)
         tdf = ndf[['project_name', 'section_name', 'equipment_id', 'equipment_name', 'total_amount']]
         tdf = tdf.groupby(['project_name', 'section_name', 'equipment_id', 'equipment_name']).sum().reset_index()

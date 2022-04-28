@@ -47,8 +47,6 @@ class RoleListGeneric(generics.ListCreateAPIView):
         req_user = request.user
         user_roles = req_user.role_set.values('id', 'role_code')
         user_roles = [item['role_code'] for item in list(user_roles)]
-        if not user_roles:
-            user_roles = ['standardUser']
         if not distribute:
             if 'developer' not in user_roles:
                 managerRoles = list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles))
@@ -284,8 +282,6 @@ class UserListGeneric(generics.ListAPIView):
         req_user = request.user
         user_roles = req_user.role_set.values('id', 'role_code')
         user_roles = [item['role_code'] for item in list(user_roles)]
-        if not user_roles:
-            user_roles = ['standardUser']
         if 'developer' in user_roles:
             pass
         elif list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles)):
@@ -293,10 +289,8 @@ class UserListGeneric(generics.ListAPIView):
         elif 'labSectionManager' in user_roles:
             section_id = req_user.section_id
             queryset = queryset.filter(is_superuser=False).filter(section_id=section_id)
-        elif list(set(user_roles).union(('standardUser',))) == ['standardUser']:
-            queryset = queryset.filter(is_superuser=False).filter(id=req_user.id)
         else:
-            queryset = queryset.filter(is_superuser=False)
+            queryset = queryset.filter(is_superuser=False).filter(id=req_user.id)
         employee_no = request.GET.get('employee_no')
         if employee_no:
             queryset = queryset.filter(employee_no=employee_no)  # 精确查询

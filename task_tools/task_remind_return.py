@@ -74,7 +74,7 @@ class RemindReturnTask:
                             need_cc_users = User.objects.filter(is_delete=False, need_cc=True).values()
                             need_cc_email = [item['email'] for item in list(need_cc_users)]
                             # 查询所在部门其他用户
-                            section_users = Role.objects.filter(role_code='sectionManager').first().\
+                            section_users = Role.objects.filter(role_code__contains='SectionManager').first().\
                                             users.filter(is_delete=False, section_id=user.section_id).values()
                             section_email = [item['email'] for item in list(section_users)]
                             cc = list(set(need_cc_email + section_email))

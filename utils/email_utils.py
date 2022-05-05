@@ -50,7 +50,7 @@ def send_mail(to, cc, info, borrow):
             
             <p style="color:red">注意: 该邮件由系统发送，无需回复！</p>
             <p>————————————————————————————————————</p>
-            <p>人力资源与行政部  CAD&amp;IT </p>
+            <p>IT平台部  CAD&amp;IT </p>
             </body>
             </html>''' % (borrow.user_name, borrow.equipment_id, info, borrow.equipment_id,
                           borrow.equipment_name, borrow.project_name, borrow.start_time.strftime('%Y-%m-%d %H:%M:%S'),

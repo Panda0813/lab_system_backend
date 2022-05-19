@@ -292,6 +292,13 @@ class EquipmentBorrowRecord(models.Model):
         else:
             return None
 
+    @property
+    def equipment_deposit_position(self):
+        if self.equipment:
+            return self.equipment.deposit_position
+        else:
+            return None
+
     def delete(self, using=None, keep_parents=False):
         self.is_delete = True
         self.save()

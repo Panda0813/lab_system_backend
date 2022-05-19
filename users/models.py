@@ -137,6 +137,7 @@ class Role(models.Model):
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
     remarks = models.TextField(verbose_name='备注', null=True)
     belong_sys = models.CharField(verbose_name='角色所属系统', max_length=50, null=True)
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
 
     class Meta:
         db_table = 'role'

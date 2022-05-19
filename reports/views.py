@@ -485,6 +485,8 @@ def get_equipment_fee(request):
         ndf['total_amount'] = ndf['total_amount'].map(lambda x: float(x) if x else x)
         ndf = get_usagetime(ndf, start_time, end_time)
         tdf = ndf[['project_name', 'section_name', 'equipment_id', 'equipment_name', 'total_amount']]
+        tdf[['project_name', 'section_name', 'equipment_id', 'equipment_name']] = \
+            tdf[['project_name', 'section_name', 'equipment_id', 'equipment_name']].replace({None: ''})
         tdf = tdf.groupby(['project_name', 'section_name', 'equipment_id', 'equipment_name']).sum().reset_index()
         project_name_ls = [project_name for project_name in list(tdf['project_name'].unique())]
         project_name_ls.sort()

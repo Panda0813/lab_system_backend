@@ -36,7 +36,7 @@ EXPIRE_DAYS = getattr(settings, 'TOKEN_EXPIRE_DAYS')
 
 class RoleListGeneric(generics.ListCreateAPIView):
     model = Role
-    queryset = model.objects.all()
+    queryset = model.objects.all().filter(is_active=True)
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
     serializer_class = RoleSerializer

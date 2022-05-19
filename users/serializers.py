@@ -16,7 +16,7 @@ logger = logging.getLogger('django')
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
-        fields = ('id', 'name', 'role_code', 'routes', 'belong_sys')
+        fields = ('id', 'name', 'role_code', 'routes', 'belong_sys', 'is_active')
         extra_kwargs = {
             'name': {
                 'validators': [validators.UniqueValidator(queryset=Role.objects.all(), message='该名称已存在')],

@@ -194,7 +194,6 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
     is_borrow = serializers.ReadOnlyField()
     remarks = serializers.ReadOnlyField()
     is_return = serializers.ReadOnlyField()
-    actual_end_time = serializers.ReadOnlyField()
     expect_usage_time = serializers.ReadOnlyField()
     actual_usage_time = serializers.ReadOnlyField()
     is_interrupted = serializers.ReadOnlyField()
@@ -210,7 +209,7 @@ class BorrowRecordSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name',
                   'borrow_type', 'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
                   'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'total_amount', 'remarks',
-                  'return_confirm_state', 'return_position')
+                  'return_confirm_state', 'return_position', 'equipment_deposit_position')
 
         extra_kwargs = {
             'user': {
@@ -253,7 +252,7 @@ class OperateBorrowRecordSerializer(serializers.ModelSerializer):
         fields = ('id', 'user_name', 'section_name', 'project', 'project_name', 'equipment', 'equipment_name', 'borrow_type',
                   'start_time', 'end_time', 'expect_usage_time', 'is_approval', 'refuse_reason', 'is_borrow',
                   'is_return', 'is_interrupted', 'actual_end_time', 'actual_usage_time', 'remarks',
-                  'return_confirm_state', 'return_position')
+                  'return_confirm_state', 'return_position', 'equipment_deposit_position')
         extra_kwargs = {
             'project': {
                 'read_only': True,

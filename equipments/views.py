@@ -248,7 +248,7 @@ def get_deposit_position(request):
     qs = Equipment.objects.values('deposit_position').distinct()
     deposit_positions = []
     if qs:
-        deposit_positions = [item['deposit_position'] for item in list(qs)]
+        deposit_positions = [item['deposit_position'] for item in list(qs) if item['deposit_position']]
     return REST_SUCCESS(deposit_positions)
 
 
@@ -265,7 +265,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
         search = request.GET.get('search', '')
         if search:
-            queryset = queryset.filter(Q(id=search) | Q(name__contains=search))
+            queryset = queryset.filter(Q(id__contains=search) | Q(name__contains=search))
         equipment_state = request.GET.get('equipment_state')
         if equipment_state:
             equipment_state_ls = equipment_state.split(',')
@@ -468,7 +468,7 @@ class DepreciationDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
 # 查询一个设备的可借用时间限制条件
 def get_borrow_time_limit(equipment_id):
     equipment_qs = Equipment.objects.filter(id=equipment_id)
-    brrow_qs = EquipmentBorrowRecord.objects.filter(equipment__id=equipment_id).order_by('-end_time')
+    brrow_qs = EquipmentBorrowRecord.objects.filter(equipment__id=equipment_id, is_approval=1, is_delete=False).order_by('-end_time')
     allow_borrow_days = equipment_qs.first().allow_borrow_days
     last_borrow_end_time = None
     if brrow_qs:
@@ -487,10 +487,9 @@ class BorrowListGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            queryset = queryset.filter(equipment_id=equipment_id)  # 精确查询
-
+        search = request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
@@ -498,7 +497,6 @@ class BorrowListGeneric(generics.ListCreateAPIView):
 
         fuzzy_params = {}
         fuzzy_params['user__username'] = request.GET.get('user_name', '')
-        fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
         fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
         fuzzy_params['project__name'] = request.GET.get('project_name', '')
         fuzzy_params['user__section_name'] = request.GET.get('section_name', '')
@@ -533,7 +531,10 @@ class BorrowListGeneric(generics.ListCreateAPIView):
 
         equipment = data.get('equipment')
         if equipment.equipment_state not in [1, 2]:
-            raise serializers.ValidationError('设备当前状态为{}, 暂时无法借用'.format(equipment.get_equipment_state_display()))
+            raise serializers.ValidationError('设备当前状态为{}, 暂时无法使用'.format(equipment.get_equipment_state_display()))
+        interrupt_borrow_qs = EquipmentBorrowRecord.objects.filter(user=request.user, is_delete=False,
+                                                                   is_interrupted=True, equipment_id=equipment,
+                                                                   is_recovery_interrupt=False).order_by('id').last()
         if borrow_type in ['正常申请', '恢复中断']:  # 判断选择的日期是否在设备可借用时间内
             borrow_time_limit = get_borrow_time_limit(equipment.id)
             last_borrow_end_time = borrow_time_limit['last_borrow_end_time']
@@ -541,27 +542,23 @@ class BorrowListGeneric(generics.ListCreateAPIView):
             if borrow_type == '正常申请':
                 if last_borrow_end_time:
                     if last_borrow_end_time > start_time:
-                        raise serializers.ValidationError('借用开始时间最早为: {}'.format(last_borrow_end_time))
+                        raise serializers.ValidationError('开始时间最早为: {}'.format(last_borrow_end_time))
             if borrow_type == '恢复中断':  # 根据上次剩余时间限制结束时间
-                req_borrow_qs = EquipmentBorrowRecord.objects.filter(user=request.user, is_delete=False,
-                                                                     is_interrupted=True,
-                                                                     is_recovery_interrupt=False).order_by('id').last()
-                if not req_borrow_qs:
-                    raise serializers.ValidationError('您当前没有可恢复中断的借用申请')
-                interrupt_id = req_borrow_qs.id
-                surplus_hours = float(req_borrow_qs.expect_usage_time) - float(req_borrow_qs.actual_usage_time)
-                if surplus_hours > 0:  # 根据上次中断剩余时间计算最晚借用结束时间
+                if not interrupt_borrow_qs:
+                    raise serializers.ValidationError('没有可恢复中断的时长')
+                surplus_hours = float(interrupt_borrow_qs.expect_usage_time) - float(interrupt_borrow_qs.actual_usage_time)
+                if surplus_hours > 0:  # 根据上次中断剩余时间计算最晚结束时间
                     end = calculate_end_time(start_time, surplus_hours)
                     allow_end_time = end
                     if allow_end_time < end_time:
-                        raise serializers.ValidationError('借用结束时间最晚为: {}'.format(allow_end_time))
+                        raise serializers.ValidationError('结束时间最晚为: {}'.format(allow_end_time))
                 else:
-                    raise serializers.ValidationError('您已经没有可借用时长了')
+                    raise serializers.ValidationError('没有可恢复中断的时长')
             else:
                 if allow_borrow_days:
                     allow_end_time = start_time + datetime.timedelta(days=allow_borrow_days)
                     if allow_end_time < end_time:
-                        raise serializers.ValidationError('借用结束时间最晚为: {}'.format(allow_end_time))
+                        raise serializers.ValidationError('结束时间最晚为: {}'.format(allow_end_time))
 
         expect_usage_time = calculate_datediff(start_time, end_time)
         data.update({'expect_usage_time': expect_usage_time})
@@ -569,11 +566,11 @@ class BorrowListGeneric(generics.ListCreateAPIView):
             # 先查询当前紧急借用时间段内是否有排队的用户,如果有，所以用户时间往后推迟
             now_range_time_qs = EquipmentBorrowRecord.objects.filter(Q(start_time__range=[start_time, end_time]) |
                                                                      Q(end_time__range=[start_time, end_time]),
-                                                                     is_borrow=False, is_delete=False,
+                                                                     is_approval=0, is_delete=False,
                                                                      equipment_id=equipment.id).order_by('id')
             if now_range_time_qs:
                 need_delay_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=now_range_time_qs.first().start_time,
-                                                                     is_borrow=False, is_delete=False,
+                                                                     is_approval=0, is_delete=False,
                                                                      equipment_id=equipment.id)
 
                 # 对正在排队的用户做时间顺延
@@ -621,14 +618,15 @@ class BorrowListGeneric(generics.ListCreateAPIView):
                             b_obj.end_time = end
                             b_obj.save()
                             last_end_time = end
+                            if interrupt_borrow_qs:
+                                EquipmentBorrowRecord.objects.filter(id=interrupt_borrow_qs.id).\
+                                    update(is_recovery_interrupt=True)
                         transaction.savepoint_commit(save_id)
                     except Exception as e:
                         transaction.savepoint_rollback(save_id)
                         logger.error('顺延排队用户借用时间失败,error:{}'.format(str(e)))
                         raise serializers.ValidationError('顺延排队用户借用时间失败')
 
-        if borrow_type == '恢复中断':
-            EquipmentBorrowRecord.objects.filter(id=interrupt_id).update(is_recovery_interrupt=True)
         data.update({'per_hour_price': equipment.per_hour_price})
         serializer.validated_data.update(data)
         self.perform_create(serializer)
@@ -648,8 +646,9 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        old_is_borrow = instance.is_borrow
+        old_is_approval = instance.is_approval
         old_confirm_state = instance.return_confirm_state
+        old_is_return = instance.is_return
         per_hour_price = instance.per_hour_price
         equipment_id = instance.equipment_id
         equipment_obj = Equipment.objects.filter(id=equipment_id)
@@ -660,8 +659,8 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
         end_time = data.get('end_time')
         expect_usage_time = calculate_datediff(start_time, end_time)
         data.update({'expect_usage_time': expect_usage_time})
-        is_borrow = data.get('is_borrow')
-        if is_borrow is True and old_is_borrow is False:
+        is_approval = data.get('is_approval')
+        if is_approval == 1 and old_is_approval == 0:
             if Equipment.objects.get(id=equipment_id).equipment_state == 2:
                 raise serializers.ValidationError('该设备已借出，请先确认设备状态')
             Equipment.objects.filter(id=equipment_id).update(equipment_state=2)
@@ -671,6 +670,10 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
             data.update({'end_time': end_time})
         return_confirm_state = data.get('return_confirm_state')
         return_position = data.get('return_position')
+        is_return = data.get('is_return')
+        if is_return == 1 and old_is_return == 0:
+            actual_end_time = datetime.datetime.now()
+            data.update({'actual_end_time': actual_end_time})
         if return_confirm_state is not None and old_confirm_state is None:
             data.update({'is_return': 2})
             actual_end_time = data.get('actual_end_time')
@@ -699,8 +702,8 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
                         # TODO 通知下一个预约用户可借用了
                         next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=actual_end_time,
                                                                             equipment_id=equipment_id,
-                                                                            is_borrow=False, is_delete=False,
-                                                                            is_approval=1).order_by('id')
+                                                                            is_delete=False,
+                                                                            is_approval=0).order_by('id')
                         if next_user_qs:
                             next_user = next_user_qs.first().user
                     transaction.savepoint_commit(save_id)
@@ -709,8 +712,18 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
                     logger.error('归还信息存储失败,error:{}'.format(str(e)))
                     raise serializers.ValidationError('归还信息存储失败')
         else:
-            serializer.validated_data.update(data)
-            self.perform_update(serializer)
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    if is_approval == 1 and old_is_approval == 0:
+                        Equipment.objects.filter(id=equipment_id).update(equipment_state=2)
+                    serializer.validated_data.update(data)
+                    self.perform_update(serializer)
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('操作失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('操作失败')
 
         if getattr(instance, '_prefetched_objects_cache', None):
             # If 'prefetch_related' has been applied to a queryset, we need to
@@ -749,16 +762,26 @@ def get_AllowBorrowTime(request):
     if borrow_type == '正常申请':  # 限制开始时间
         if last_borrow_end_time:
             if last_borrow_end_time > allow_start_time:
-                allow_start_time = last_borrow_end_time
+                allow_start_time = (last_borrow_end_time + datetime.timedelta(minutes=1)).replace(second=0, microsecond=0)
     if borrow_type == '恢复中断':  # 根据上次剩余时间限制结束时间
-        req_borrow_qs = EquipmentBorrowRecord.objects.filter(user=request.user, is_delete=False, is_interrupted=True).\
+        interrupt_borrow_qs = EquipmentBorrowRecord.objects.filter(user=request.user, is_delete=False, is_interrupted=True,
+                                                             is_recovery_interrupt=False, equipment_id=equipment_id).\
                                     order_by('id').last()
-        surplus_hours = float(req_borrow_qs.expect_usage_time) - float(req_borrow_qs.actual_usage_time)
+        surplus_hours = 0
+        if interrupt_borrow_qs:
+            surplus_hours = float(interrupt_borrow_qs.expect_usage_time) - float(interrupt_borrow_qs.actual_usage_time)
         if surplus_hours > 0:
             allow_end_time = allow_start_time + datetime.timedelta(hours=surplus_hours)
         else:
-            allow_end_time = allow_start_time
+            return REST_SUCCESS(data={'allow_start_time': None, 'allow_end_time': None})
     else:
+        if borrow_type == '紧急申请':
+            no_approval = EquipmentBorrowRecord.objects.filter(is_approval=1, is_return=0, is_delete=False,
+                                                               equipment_id=equipment_id).order_by('-end_time').first()
+            if no_approval:
+                if no_approval.end_time > allow_start_time:
+                    allow_start_time = (no_approval.end_time + datetime.timedelta(minutes=1)).\
+                                            replace(second=0, microsecond=0)
         if allow_borrow_days:
             allow_end_time = allow_start_time + datetime.timedelta(days=allow_borrow_days)
     return REST_SUCCESS(data={'allow_start_time': allow_start_time, 'allow_end_time': allow_end_time})
@@ -866,8 +889,8 @@ class OperateReturnApplyGeneric(generics.RetrieveUpdateAPIView):
                         # TODO 通知下一个预约用户可借用了
                         next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=actual_end_time,
                                                                             equipment_id=equipment_id,
-                                                                            is_borrow=False, is_delete=False,
-                                                                            is_approval=1).order_by('id')
+                                                                            is_delete=False,
+                                                                            is_approval=0).order_by('id')
                         if next_user_qs:
                             next_user = next_user_qs.first().user
                     transaction.savepoint_commit(save_id)
@@ -892,7 +915,6 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
     model = EquipmentBrokenInfo
     queryset = model.objects.all().order_by('-create_time')
     serializer_class = BrokenInfoSerializer
-    pagination_class = MyPagePagination
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
 

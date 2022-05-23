@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'reports',
     'rest_framework_swagger',
     'gc_foundry',
+    'fba_estimate',
 ]
 
 AUTH_USER_MODEL = 'users.User'

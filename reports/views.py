@@ -49,7 +49,7 @@ def get_usagetime(ndf, start_time, end_time):
 @api_view(['GET'])
 def get_usage_rate(request):
     try:
-        obj = EquipmentBorrowRecord.objects.filter(is_borrow=True, is_return=2)
+        obj = EquipmentBorrowRecord.objects.filter(is_approval=1, is_return=2)
         user_name = request.GET.get('user_name')
         if user_name:
             obj = obj.filter(user__username__contains=user_name)
@@ -224,7 +224,7 @@ def get_usage_rate(request):
 @api_view(['GET'])
 def get_use_detail(request):
     try:
-        obj = EquipmentBorrowRecord.objects.filter(is_borrow=True, is_return=2)
+        obj = EquipmentBorrowRecord.objects.filter(is_approval=1, is_return=2)
         user_name = request.GET.get('user_name')
         if user_name:
             obj = obj.filter(user__username__contains=user_name)
@@ -447,7 +447,7 @@ def get_broken_record(request):
 @api_view(['GET'])
 def get_equipment_fee(request):
     try:
-        obj = EquipmentBorrowRecord.objects.filter(~Q(total_amount=None), is_borrow=True, is_return=2)
+        obj = EquipmentBorrowRecord.objects.filter(~Q(total_amount=None), is_approval=1, is_return=2)
         project_id = request.GET.get('project')
         if project_id:
             obj = obj.filter(project_id=project_id)

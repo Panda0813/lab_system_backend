@@ -561,10 +561,14 @@ def export_equipment_list(request):
         category = request.GET.get('category', '')
         if category:
             obj = obj.filter(category=category)
+        factory = request.GET.get('factory', '')
+        if factory:
+            obj = obj.filter(factory=factory)
 
         fuzzy_params = {}
         fuzzy_params['purchase_order_no'] = request.GET.get('purchase_order_no', '')
         fuzzy_params['name'] = request.GET.get('name', '')
+        fuzzy_params['supplier'] = request.GET.get('supplier', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():
@@ -677,10 +681,14 @@ def export_tooling_list(request):
         category = request.GET.get('category', '')
         if category:
             obj = obj.filter(category=category)
+        factory = request.GET.get('factory', '')
+        if factory:
+            obj = obj.filter(factory=factory)
 
         fuzzy_params = {}
         fuzzy_params['purchase_order_no'] = request.GET.get('purchase_order_no', '')
         fuzzy_params['name'] = request.GET.get('name', '')
+        fuzzy_params['supplier'] = request.GET.get('supplier', '')
 
         filter_params = {}
         for k, v in fuzzy_params.items():

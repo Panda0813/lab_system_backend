@@ -577,8 +577,9 @@ def export_equipment_list(request):
                                                  'project__name', 'number', 'unit', 'price', 'total_amount',
                                                  'currency__name', 'currency__exchange_rate', 'factory__name',
                                                  'assort_material', 'fixed_asset_code')
+        blank_path = os.path.dirname(__file__) + '/blank_files/机台信息表.xlsx'
         if not qs:
-            return REST_SUCCESS([])
+            return create_excel_resp(blank_path, '机台信息表')
         df = pd.DataFrame(list(qs))
         df['price'] = df['price'].map(lambda x: float(x) if x else x)
         df['total_amount'] = df['total_amount'].map(lambda x: float(x) if x else x)
@@ -692,8 +693,9 @@ def export_tooling_list(request):
                                                  'project__name', 'number', 'unit', 'price', 'total_amount',
                                                  'currency__name', 'currency__exchange_rate', 'factory__name',
                                                  'used_machine', 'fixed_asset_code')
+        blank_path = os.path.dirname(__file__) + '/blank_files/设备器材表.xlsx'
         if not qs:
-            return REST_SUCCESS([])
+            return create_excel_resp(blank_path, '设备器材表')
         df = pd.DataFrame(list(qs))
         df['price'] = df['price'].map(lambda x: float(x) if x else x)
         df['total_amount'] = df['total_amount'].map(lambda x: float(x) if x else x)

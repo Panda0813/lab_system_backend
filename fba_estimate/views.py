@@ -692,8 +692,10 @@ def export_month_detail(request):
         service_filter = get_service_filter(req_user)
         year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, 'detail')
         qs = list(qs1) + list(qs2)
+        title = '{}年{}月份资金预估表'.format(year, month)
+        template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Detail_Template.xlsx'
         if not qs:
-            return REST_SUCCESS([])
+            return create_excel_resp(template_path, title)
         df = pd.DataFrame(qs)
         if not qs1:
             df['day'] = None
@@ -719,8 +721,6 @@ def export_month_detail(request):
                            how='outer')
         mergedf[['in_usd', 'in_cny', 'out_usd', 'out_cny']] = mergedf[
             ['in_usd', 'in_cny', 'out_usd', 'out_cny']].replace({0: None})
-        title = '{}年{}月份资金预估表'.format(year, month)
-        template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Detail_Template.xlsx'
         wb = load_workbook(template_path)
         ws = wb['Sheet1']
         ws['B1'] = title
@@ -819,8 +819,10 @@ def export_month_monitor(request):
         service_filter = get_service_filter(req_user)
         year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, 'monitor')
         qs = list(qs1) + list(qs2)
+        title = '{}年现金流'.format(year)
+        template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Monitor_Template.xlsx'
         if not qs:
-            return REST_SUCCESS([])
+            return create_excel_resp(template_path, title)
         query_service_sql = '''select f.id as first_service_id, f.name as first_service, 
                                     s.id as second_service_id , s.name as second_service
                                     from fba_first_service f
@@ -861,8 +863,6 @@ def export_month_monitor(request):
              'month']).sum().reset_index()
         mdf[['in', 'out']] = mdf[['in', 'out']].replace({0: None})
         service_df = pd.DataFrame(service_qs)
-        title = '{}年现金流'.format(year)
-        template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Monitor_Template.xlsx'
         wb = load_workbook(template_path)
         ws = wb['现金流监控总表']
         ws['A1'] = title

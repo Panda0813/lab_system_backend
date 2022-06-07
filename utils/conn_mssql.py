@@ -24,11 +24,9 @@ def get_oa_users(request):
     count_sql = '''select count(*) as count
                 from UniicUsers where CurrentStatus=1 and not (User_name like '%紫存%') {}
                 '''
-    sql = '''select User_id, loginid, convert(nvarchar(50), User_name) as User_name,
-                convert(nvarchar(50), Department) as Department, Worker_id
-                from UniicUsers where CurrentStatus=1 and not (User_name like '%紫存%') {} order by User_name
-                offset {} rows
-                fetch next {} rows only'''
+    sql = '''select User_id, loginid,User_name,Department, Worker_id
+                from UniicUsers where CurrentStatus=1 and not (User_name like '%紫存%') {} order by CONVERT ( User_name USING GBK )
+                limit {} offset {}'''
     filter_sql = ''
     page = 1
     size = 10
@@ -55,7 +53,7 @@ def get_oa_users(request):
         total = total_qs[0]['count']
         if total:
             offset = (page - 1) * size
-            sql = sql.format(filter_sql, offset, size)
+            sql = sql.format(filter_sql, size, offset)
             cursor.execute(sql)
             users = dictfetchall(cursor)
         else:
@@ -64,7 +62,7 @@ def get_oa_users(request):
 
 
 def get_oa_sections():
-    sql = '''select distinct DepartmentId,convert(nvarchar(50), Department) as Department 
+    sql = '''select distinct DepartmentId,Department 
                 from UniicUsers where CurrentStatus=1'''
     with connection.cursor() as cursor:
         cursor.execute(sql)

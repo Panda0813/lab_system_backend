@@ -1,3 +1,6 @@
+import pymysql
+pymysql.install_as_MySQLdb()
+
 from task_tools.task_refresh_calibration_state import init_refresh_task
 from task_tools.task_remind_return import init_remind_return
 from task_tools.task_refresh_currency_rate import init_refresh_currency
@@ -12,7 +15,7 @@ def init_uniq():
     """
     init_refresh_task()
     init_remind_return()
-    init_refresh_currency()
+    # init_refresh_currency()
 
 
 if platform.system() == "Windows":

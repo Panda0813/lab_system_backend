@@ -63,7 +63,7 @@ JWT_AUTH = {
     'JWT_EXPIRATION_DELTA': datetime.timedelta(days=5)
 }
 
-TOKEN_EXPIRE_DAYS = 3
+TOKEN_EXPIRE_DAYS = 7
 
 REST_FRAMEWORK = {
     'DATETIME_FORMAT': "%Y-%m-%dT%H:%M:%S",
@@ -157,17 +157,14 @@ DATABASES = {
     #     'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     # },
     'default': {
-        'ENGINE': 'sql_server.pyodbc',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'UNIIC_LABTEST',
-        'HOST': '172.21.12.104',
-        'PORT': 1433,
-        'USER': 'DBConUser',
-        'PASSWORD': 'Uniic8253Yw#',
-        'OPTIONS': {
-            'driver': 'ODBC Driver 11 for SQL Server',
-            'MARS_Connection': True,
-        },
-    }
+        'HOST': 'localhost',
+        'POST': 3306,
+        'USER': 'root',
+        'PASSWORD': 'uniic123456+',
+        'CHARSET': ' utf8'
+    },
 }
 
 

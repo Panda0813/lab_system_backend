@@ -1,4 +1,5 @@
 from equipments.ext_utils import dictfetchall
+from django.db import connection, transaction, close_old_connections
 import pymssql
 import logging
 
@@ -18,8 +19,6 @@ def get_mssql_conn():
 
 def get_oa_users(request):
     from users.models import User
-    conn = get_mssql_conn()
-    cur = conn.cursor()
     exist_users = User.objects.all().filter(is_delete=False).values('employee_no')
     exist_users = [item['employee_no'] for item in exist_users if item['employee_no']]
     count_sql = '''select count(*) as count
@@ -50,30 +49,26 @@ def get_oa_users(request):
         else:
             filter_sql += ' and Worker_id not in {}'.format(tuple(exist_users))
     total_sql = count_sql.format(filter_sql)
-    cur.execute(total_sql)
-    total_qs = dictfetchall(cur)
-    total = total_qs[0]['count']
-    if total:
-        offset = (page - 1) * size
-        sql = sql.format(filter_sql, offset, size)
-        cur.execute(sql)
-        users = dictfetchall(cur)
-    else:
-        users = []
-    cur.close()
-    conn.close()
+    with connection.cursor() as cursor:
+        cursor.execute(total_sql)
+        total_qs = dictfetchall(cursor)
+        total = total_qs[0]['count']
+        if total:
+            offset = (page - 1) * size
+            sql = sql.format(filter_sql, offset, size)
+            cursor.execute(sql)
+            users = dictfetchall(cursor)
+        else:
+            users = []
     return total, users
 
 
 def get_oa_sections():
-    conn = get_mssql_conn()
-    cur = conn.cursor()
     sql = '''select distinct DepartmentId,convert(nvarchar(50), Department) as Department 
                 from UniicUsers where CurrentStatus=1'''
-    cur.execute(sql)
-    sections = dictfetchall(cur)
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        sections = dictfetchall(cursor)
     if sections:
         sections = [{'value': item['DepartmentId'], 'label': item['Department']} for item in sections]
-    cur.close()
-    conn.close()
     return sections

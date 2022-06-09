@@ -161,6 +161,11 @@ class UserRegisterView(generics.CreateAPIView):
         else:
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data.copy()
+            email = data.get('email')
+            if email:
+                email_pre = email.split('@')[0]
+                email = email_pre + '@unisemicon.com'
+            data.update({'email': email})
             section_name = data.get('department')
             section_qs = Section.objects.filter(name=section_name)
             if section_qs:

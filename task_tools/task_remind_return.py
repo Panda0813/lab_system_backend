@@ -24,8 +24,8 @@ class RemindReturnTask:
         #                               and is_approval=1 and is_return=0
         #                               and is_overtime_remind=FALSE and is_delete=FALSE'''.format(remind_seconds)
         query_sql = '''select id, user_id, equipment_id, is_approval, is_return, end_time, is_final_remind, is_overtime_remind,
-                           TIMESTAMPDIFF(SECOND, end_time, now()) as delta_seconds
-                           from equipment_borrow_record where  TIMESTAMPDIFF(SECOND, end_time, now()) < {}
+                           TIMESTAMPDIFF(SECOND, now(), end_time) as delta_seconds
+                           from equipment_borrow_record where  TIMESTAMPDIFF(SECOND, now(), end_time) < {}
                                       and is_approval=1 and is_return=0
                                       and is_overtime_remind=0 and is_delete=0'''.format(remind_seconds)
         close_old_connections()

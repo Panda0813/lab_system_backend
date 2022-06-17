@@ -182,17 +182,36 @@ class SecondServiceDetail(generics.RetrieveUpdateDestroyAPIView):
         return REST_SUCCESS({'msg': '删除成功'})
 
 
-# 查询表中的付款公司
+# 查询表中的收、付款公司
 @api_view(['GET'])
 def get_company(request):
-    qs1 = EstimateMonthFuture.objects.values('company').distinct()
-    qs2 = EstimateMonthDetail.objects.values('company').distinct()
-    company_ls = []
+    in_qs1 = EstimateMonthFuture.objects.values('in_company').distinct()
+    in_qs2 = EstimateMonthDetail.objects.values('in_company').distinct()
+    out_qs1 = EstimateMonthFuture.objects.values('out_company').distinct()
+    out_qs2 = EstimateMonthDetail.objects.values('out_company').distinct()
+    company_ls = {'in_company_ls': [], 'out_company_ls': []}
+    in_qs = list(in_qs1) + list(in_qs2)
+    out_qs = list(out_qs1) + list(out_qs2)
+    if in_qs:
+        in_company_ls = [item['in_company'] for item in in_qs if item['in_company']]
+        company_ls['in_company_ls'] = list(set(in_company_ls))
+    if out_qs:
+        out_company_ls = [item['out_company'] for item in out_qs if item['out_company']]
+        company_ls['out_company_ls'] = list(set(out_company_ls))
+    return REST_SUCCESS(company_ls)
+
+
+# 查询表中的填报人
+@api_view(['GET'])
+def get_writer_user(request):
+    qs1 = EstimateMonthFuture.objects.values('writer_user').distinct()
+    qs2 = EstimateMonthDetail.objects.values('writer_user').distinct()
+    writer_user_ls = []
     qs = list(qs1) + list(qs2)
     if qs:
-        company_ls = [item['company'] for item in qs]
-        company_ls = list(set(company_ls))
-    return REST_SUCCESS(company_ls)
+        writer_user_ls = [item['writer_user'] for item in qs if item['writer_user']]
+        writer_user_ls = list(set(writer_user_ls))
+    return REST_SUCCESS(writer_user_ls)
 
 
 class CompanyList(generics.ListCreateAPIView):
@@ -416,33 +435,41 @@ class MonthDetailList(generics.ListCreateAPIView):
         now_date = datetime.datetime.now()
         queryset = queryset.filter(create_time__year=now_date.year, create_time__month=now_date.month)
         req_user = request.user
-        # user_roles = req_user.role_set.values('id', 'role_code')
-        # user_roles = [item['role_code'] for item in list(user_roles)]
-        # if list(set(['developer', 'fbaManager']) & set(user_roles)):
-        #     pass
-        # elif 'fbaCsManager' in user_roles:
-        #     queryset = queryset.filter(first_service__name__in=['标准DRAM', '模组'])
-        # elif 'fbaSuprManager' in user_roles:
-        #     queryset = queryset.filter(first_service__name__in=['大带宽产品', '设计服务'])
-        # else:
-        #     queryset = queryset.filter(writer_user=req_user.username)
+        user_roles = req_user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
+        if list(set(['developer', 'fbaManager']) & set(user_roles)):
+            pass
+        elif 'fbaCsManager' in user_roles:
+            queryset = queryset.filter(first_service__name__in=['标准DRAM', '模组'])
+        elif 'fbaSuprManager' in user_roles:
+            queryset = queryset.filter(first_service__name__in=['大带宽产品', '设计服务'])
+        else:
+            queryset = queryset.filter(writer_user=req_user.username)
         # existTag = request.GET.get('existTag')
         # if existTag:  # 判断是否是查询已存在的填写
-        queryset = queryset.filter(writer_user=req_user.username)
+        # queryset = queryset.filter(writer_user=req_user.username)
         start_day = request.GET.get('start_time')
         end_day = request.GET.get('end_time')
         if start_day and end_day:
             queryset = queryset.filter(write_date__range=[start_day, end_day])
-        company = request.GET.get('company')
-        if company:
-            queryset = queryset.filter(company__contains=company)
+        in_company = request.GET.get('in_company')
+        if in_company:
+            queryset = queryset.filter(in_company__contains=in_company)
+        out_company = request.GET.get('out_company')
+        if out_company:
+            queryset = queryset.filter(out_company__contains=out_company)
         money_type = request.GET.get('money_type')
         if money_type:
             queryset = queryset.filter(eval('~Q({}=None)'.format(money_type)))
+        writer_user = request.GET.get('writer_user')
+        if writer_user:
+            writer_user_ls = writer_user.split(',')
+            queryset = queryset.filter(writer_user__in=writer_user_ls)
 
         fuzzy_params = {}
         fuzzy_params['first_service_id'] = request.GET.get('first_service')
         fuzzy_params['second_service_id'] = request.GET.get('second_service')
+        fuzzy_params['region'] = request.GET.get('region')
         fuzzy_params['data_type'] = request.GET.get('data_type')
         fuzzy_params['write_date'] = request.GET.get('write_date')
         fuzzy_params['year'] = request.GET.get('year')
@@ -524,33 +551,41 @@ class MonthFutureList(generics.ListCreateAPIView):
         now_date = datetime.datetime.now()
         queryset = queryset.filter(create_time__year=now_date.year, create_time__month=now_date.month)
         req_user = request.user
-        # user_roles = req_user.role_set.values('id', 'role_code')
-        # user_roles = [item['role_code'] for item in list(user_roles)]
-        # if list(set(['developer', 'fbaManager']) & set(user_roles)):
-        #     pass
-        # elif 'fbaCsManager' in user_roles:
-        #     queryset = queryset.filter(first_service__name__in=['标准DRAM', '模组'])
-        # elif 'fbaSuprManager' in user_roles:
-        #     queryset = queryset.filter(first_service__name__in=['大带宽产品', '设计服务'])
-        # else:
-        #     queryset = queryset.filter(writer_user=req_user.username)
+        user_roles = req_user.role_set.values('id', 'role_code')
+        user_roles = [item['role_code'] for item in list(user_roles)]
+        if list(set(['developer', 'fbaManager']) & set(user_roles)):
+            pass
+        elif 'fbaCsManager' in user_roles:
+            queryset = queryset.filter(first_service__name__in=['标准DRAM', '模组'])
+        elif 'fbaSuprManager' in user_roles:
+            queryset = queryset.filter(first_service__name__in=['大带宽产品', '设计服务'])
+        else:
+            queryset = queryset.filter(writer_user=req_user.username)
         # existTag = request.GET.get('existTag')
         # if existTag:  # 判断是否是查询已存在的填写
-        queryset = queryset.filter(writer_user=req_user.username)
+        # queryset = queryset.filter(writer_user=req_user.username)
         start_month = request.GET.get('start_time')
         end_month = request.GET.get('end_time')
         if start_month and end_month:
             queryset = queryset.filter(write_date__range=[start_month, end_month])
-        company = request.GET.get('company')
-        if company:
-            queryset = queryset.filter(company__contains=company)
+        in_company = request.GET.get('in_company')
+        if in_company:
+            queryset = queryset.filter(in_company__contains=in_company)
+        out_company = request.GET.get('out_company')
+        if out_company:
+            queryset = queryset.filter(out_company__contains=out_company)
         money_type = request.GET.get('money_type')
         if money_type:
             queryset = queryset.filter(eval('~Q({}=None)'.format(money_type)))
+        writer_user = request.GET.get('writer_user')
+        if writer_user:
+            writer_user_ls = writer_user.split(',')
+            queryset = queryset.filter(writer_user__in=writer_user_ls)
 
         fuzzy_params = {}
         fuzzy_params['first_service_id'] = request.GET.get('first_service')
         fuzzy_params['second_service_id'] = request.GET.get('second_service')
+        fuzzy_params['region'] = request.GET.get('region')
         fuzzy_params['data_type'] = request.GET.get('data_type')
         fuzzy_params['write_date'] = request.GET.get('write_date')
         fuzzy_params['year'] = request.GET.get('year')
@@ -632,10 +667,10 @@ def get_service_filter(req_user):
     elif 'fbaSuprManager' in user_roles:
         return ['大带宽产品', '设计服务']
     else:
-        return None
+        return 'fbaStandardUser'
 
 
-def get_base_data(export_month, service_filter, export_type):
+def get_base_data(export_month, service_filter, username, export_type):
     now_date = datetime.datetime.now()
     year = now_date.year
     month = now_date.month
@@ -644,9 +679,12 @@ def get_base_data(export_month, service_filter, export_type):
     if export_type == 'monitor':
         qs1 = qs1.filter(first_service__name__in=['标准DRAM', '模组', '大带宽产品', '设计服务'])
         qs2 = qs2.filter(first_service__name__in=['标准DRAM', '模组', '大带宽产品', '设计服务'])
-    if service_filter:
+    if isinstance(service_filter, list):
         qs1 = qs1.filter(first_service__name__in=service_filter)
         qs2 = qs2.filter(first_service__name__in=service_filter)
+    elif service_filter == 'fbaStandardUser':
+        qs1 = qs1.filter(writer_user=username)
+        qs2 = qs2.filter(writer_user=username)
     if export_month != now_date.strftime('%Y-%m'):  # 导出时间非本月,直接导出修正数
         export_date = datetime.datetime.strptime(export_month, '%Y-%m')
         year = export_date.year
@@ -667,7 +705,8 @@ def get_base_data(export_month, service_filter, export_type):
         qs1 = qs1.filter(data_type=data_type)
         qs2 = qs2.filter(data_type=data_type)
     value_args = ['first_service_id', 'first_service__name', 'second_service_id', 'second_service__name',
-                  'company', 'year', 'month', 'in_usd', 'in_cny', 'out_usd', 'out_cny', 'writer_user', 'remarks']
+                  'region', 'in_company', 'out_company', 'year', 'month', 'in_usd', 'in_cny', 'out_usd', 'out_cny',
+                  'writer_user', 'remarks']
     if export_type == 'monitor':
         value_args.append('data_type')
     qs2 = qs2.values(*tuple(value_args))
@@ -690,7 +729,7 @@ def export_month_detail(request):
             return REST_FAIL({'导出时间不能为空'})
         req_user = request.user
         service_filter = get_service_filter(req_user)
-        year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, 'detail')
+        year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, req_user.username, 'detail')
         qs = list(qs1) + list(qs2)
         title = '{}年{}月份资金预估表'.format(year, month)
         template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Detail_Template.xlsx'
@@ -700,37 +739,43 @@ def export_month_detail(request):
         if not qs1:
             df['day'] = None
         df.rename(columns={'first_service__name': 'first_service', 'second_service__name': 'second_service'}, inplace=True)
-        ndf = df[['first_service_id', 'first_service', 'second_service_id', 'second_service', 'company', 'year',
+        ndf = df[['first_service_id', 'first_service', 'second_service_id', 'second_service',
+                  'region', 'in_company', 'out_company', 'year',
                   'month', 'day', 'in_usd', 'in_cny', 'out_usd', 'out_cny', 'writer_user', 'remarks']]
         ndf[['in_usd', 'in_cny', 'out_usd', 'out_cny']] = ndf[['in_usd', 'in_cny', 'out_usd', 'out_cny']].replace({None: 0})
         ndf[['in_usd', 'in_cny', 'out_usd', 'out_cny']] = ndf[['in_usd', 'in_cny', 'out_usd', 'out_cny']].astype(float)
-        ndf[['second_service', 'second_service_id', 'day']] = ndf[
-                                        ['second_service', 'second_service_id', 'day']].replace({None: ''})
+        region_type = {1: '中国南区', 2: '中国北区'}
+        ndf['region'] = ndf['region'].map(region_type)
+        ndf[['second_service', 'second_service_id', 'day', 'region', 'in_company', 'out_company']] = ndf[
+            ['second_service', 'second_service_id', 'day', 'region', 'in_company', 'out_company']].replace({None: ''})
         ndf['remarks'] = ndf['remarks'].map(lambda x: [x] if x else [])
-        remarkSum = ndf.groupby(['first_service_id', 'first_service', 'second_service_id', 'second_service', 'company',
+        remarkSum = ndf.groupby(['first_service_id', 'first_service', 'second_service_id', 'second_service',
+                                 'region', 'in_company', 'out_company',
                                  'year', 'month', 'day', 'writer_user'])['remarks'].sum().reset_index()
         remarkSum['remarks'] = remarkSum['remarks'].map(lambda x: ','.join(x) if x else '')
         remarkSum.sort_values(by=['month', 'day', 'first_service_id', 'second_service_id'], inplace=True)
         remarkSum.drop(['first_service_id', 'second_service_id'], axis=1, inplace=True)
-        moneySum = ndf.groupby(['first_service_id', 'first_service', 'second_service_id', 'second_service', 'company',
+        moneySum = ndf.groupby(['first_service_id', 'first_service', 'second_service_id', 'second_service',
+                                'region', 'in_company', 'out_company',
                                 'year', 'month', 'day', 'writer_user']).sum().reset_index()
         moneySum.sort_values(by=['month', 'day', 'first_service_id', 'second_service_id'], inplace=True)
         moneySum.drop(['first_service_id', 'second_service_id'], axis=1, inplace=True)
         mergedf = pd.merge(moneySum, remarkSum,
-                           on=['first_service', 'second_service', 'company', 'year', 'month', 'day', 'writer_user'],
+                           on=['first_service', 'second_service', 'region', 'in_company', 'out_company',
+                               'year', 'month', 'day', 'writer_user'],
                            how='outer')
         mergedf[['in_usd', 'in_cny', 'out_usd', 'out_cny']] = mergedf[
             ['in_usd', 'in_cny', 'out_usd', 'out_cny']].replace({0: None})
         wb = load_workbook(template_path)
         ws = wb['Sheet1']
         ws['B1'] = title
-        ws['L1'] = float(surplus_data.get('uniic_usd', 0))
-        ws['L2'] = float(surplus_data.get('uniic_cny', 0))
-        ws['L3'] = float(surplus_data.get('hk_usd', 0))
-        ws['M1'] = float(surplus_data.get('currency_exchange', 0))
-        ws['D6'] = year
-        ws['E6'] = month
-        ws['F6'] = 1
+        ws['N1'] = float(surplus_data.get('uniic_usd')) if surplus_data.get('uniic_usd') else 0
+        ws['N2'] = float(surplus_data.get('uniic_cny')) if surplus_data.get('uniic_cny') else 0
+        ws['N3'] = float(surplus_data.get('hk_usd')) if surplus_data.get('hk_usd') else 0
+        ws['O1'] = float(surplus_data.get('currency_exchange')) if surplus_data.get('currency_exchange') else 0
+        ws['F6'] = year
+        ws['G6'] = month
+        ws['H6'] = 1
         insert_data = mergedf.to_dict('records')
         startRow = 7
         for i in range(len(insert_data)):
@@ -738,20 +783,22 @@ def export_month_detail(request):
             now_row = i + startRow
             ws.cell(row=now_row, column=1).value = data['first_service']
             ws.cell(row=now_row, column=2).value = data['second_service']
-            ws.cell(row=now_row, column=3).value = data['company']
-            ws.cell(row=now_row, column=4).value = data['year']
-            ws.cell(row=now_row, column=5).value = data['month']
-            ws.cell(row=now_row, column=6).value = data['day']
-            ws.cell(row=now_row, column=7).value = data['in_usd']
-            ws.cell(row=now_row, column=8).value = data['in_cny']
-            ws.cell(row=now_row, column=9).value = data['out_usd']
-            ws.cell(row=now_row, column=10).value = data['out_cny']
-            ws.cell(row=now_row, column=11).value = "=K{}+G{}-I{}".format(now_row - 1, now_row, now_row)
-            ws.cell(row=now_row, column=12).value = "=L{}+H{}-J{}".format(now_row - 1, now_row, now_row)
-            ws.cell(row=now_row, column=13).value = "=K{}*$M$1+L{}".format(now_row, now_row)
-            ws.cell(row=now_row, column=14).value = data['writer_user']
-            ws.cell(row=now_row, column=15).value = data['remarks']
-        for row in tuple(ws['A{}'.format(startRow + 1): 'O{}'.format(len(insert_data) + startRow - 1)]):
+            ws.cell(row=now_row, column=3).value = data['region']
+            ws.cell(row=now_row, column=4).value = data['in_company']
+            ws.cell(row=now_row, column=5).value = data['out_company']
+            ws.cell(row=now_row, column=6).value = data['year']
+            ws.cell(row=now_row, column=7).value = data['month']
+            ws.cell(row=now_row, column=8).value = data['day']
+            ws.cell(row=now_row, column=9).value = data['in_usd']
+            ws.cell(row=now_row, column=10).value = data['in_cny']
+            ws.cell(row=now_row, column=11).value = data['out_usd']
+            ws.cell(row=now_row, column=12).value = data['out_cny']
+            ws.cell(row=now_row, column=13).value = "=M{}+I{}-K{}".format(now_row - 1, now_row, now_row)
+            ws.cell(row=now_row, column=14).value = "=N{}+J{}-L{}".format(now_row - 1, now_row, now_row)
+            ws.cell(row=now_row, column=15).value = "=M{}*$O$1+N{}".format(now_row, now_row)
+            ws.cell(row=now_row, column=16).value = data['writer_user']
+            ws.cell(row=now_row, column=17).value = data['remarks']
+        for row in tuple(ws['A{}'.format(startRow + 1): 'Q{}'.format(len(insert_data) + startRow - 1)]):
             for cell in row:
                 template_cell = ws.cell(row=startRow, column=cell.column)
                 cell.border = copy(ws.cell(row=startRow, column=cell.column).border)
@@ -817,7 +864,7 @@ def export_month_monitor(request):
             return REST_FAIL({'导出时间不能为空'})
         req_user = request.user
         service_filter = get_service_filter(req_user)
-        year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, 'monitor')
+        year, month, last_month, qs1, qs2, surplus_data = get_base_data(export_month, service_filter, req_user.username, 'monitor')
         qs = list(qs1) + list(qs2)
         title = '{}年现金流'.format(year)
         template_path = os.path.dirname(__file__) + '/export_template/FBA_Month_Monitor_Template.xlsx'

@@ -1,5 +1,6 @@
 from django.core import mail
 from django.core.mail import EmailMultiAlternatives
+from lab_system_backend.settings import EMAIL_FROM
 
 import os
 import logging
@@ -12,7 +13,7 @@ def send_mail(to, cc, info, borrow):
     msg = EmailMultiAlternatives(
         subject='设备使用到期提醒',
         body='testBody',
-        from_email='uniic_lab_bot@unisemicon.com',
+        from_email=EMAIL_FROM,
         to=to,
         cc=cc
     )

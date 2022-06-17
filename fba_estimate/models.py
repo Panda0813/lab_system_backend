@@ -107,9 +107,15 @@ class EstimateMonthDetail(models.Model):
         (1, '预估数'),
         (2, '修正数')
     )
+    region_types = (
+        (1, '中国南区'),
+        (2, '中国北区')
+    )
     first_service = models.ForeignKey(FirstService, verbose_name='一级业务', on_delete=models.CASCADE)
     second_service = models.ForeignKey(SecondService, verbose_name='二级业务', on_delete=models.SET_NULL, null=True)
-    company = models.CharField(verbose_name='收付款公司', max_length=100, null=True)
+    region = models.IntegerField(verbose_name='区域', choices=region_types, null=True)
+    in_company = models.CharField(verbose_name='收款公司', max_length=100, null=True)
+    out_company = models.CharField(verbose_name='付款公司', max_length=100, null=True)
     data_type = models.IntegerField(verbose_name='数据类型', choices=DATA_TYPES)
     write_date = models.CharField(verbose_name='数据所属日期', max_length=20)
     year = models.IntegerField(verbose_name='年')
@@ -151,9 +157,15 @@ class EstimateMonthFuture(models.Model):
         (1, '预估数'),
         (2, '修正数')
     )
+    region_types = (
+        (1, '中国南区'),
+        (2, '中国北区')
+    )
     first_service = models.ForeignKey(FirstService, verbose_name='一级业务', on_delete=models.CASCADE)
     second_service = models.ForeignKey(SecondService, verbose_name='二级业务', on_delete=models.SET_NULL, null=True)
-    company = models.CharField(verbose_name='收付款公司', max_length=100, null=True)
+    region = models.IntegerField(verbose_name='区域', choices=region_types, null=True)
+    in_company = models.CharField(verbose_name='收款公司', max_length=100, null=True)
+    out_company = models.CharField(verbose_name='付款公司', max_length=100, null=True)
     data_type = models.IntegerField(verbose_name='数据类型', choices=DATA_TYPES)
     write_date = models.CharField(verbose_name='数据所属日期', max_length=20)
     year = models.IntegerField(verbose_name='年')

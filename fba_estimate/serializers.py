@@ -68,7 +68,8 @@ class EstimateMonthDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EstimateMonthDetail
-        fields = ('id', 'first_service', 'first_service_name', 'second_service', 'second_service_name', 'company',
+        fields = ('id', 'first_service', 'first_service_name', 'second_service', 'second_service_name',
+                  'region', 'in_company', 'out_company',
                   'data_type', 'write_date', 'year', 'month', 'day', 'in_usd', 'in_cny', 'out_usd',
                   'out_cny', 'writer_user', 'is_allow_update', 'close_time', 'remarks', 'create_time')
 
@@ -80,6 +81,7 @@ class EstimateMonthFutureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EstimateMonthFuture
-        fields = ('id', 'first_service', 'first_service_name', 'second_service', 'second_service_name', 'company',
+        fields = ('id', 'first_service', 'first_service_name', 'second_service', 'second_service_name',
+                  'region', 'in_company', 'out_company',
                   'data_type', 'write_date', 'year', 'month', 'in_usd', 'in_cny', 'out_usd', 'out_cny',
                   'writer_user', 'is_allow_update', 'close_time', 'remarks', 'create_time')

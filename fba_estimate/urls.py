@@ -11,6 +11,7 @@ urlpatterns = [
     url(r'^company$', views.CompanyList.as_view()),
     url(r'^company/(?P<pk>[0-9]+)$', views.CompanyDetail.as_view()),
     url(r'^get-company$', views.get_company),
+    url(r'^get-writer-user$', views.get_writer_user),
     url(r'^option$', views.EstimateOptionList.as_view()),
     url(r'^option/(?P<pk>[0-9]+)$', views.EstimateOptionDetail.as_view()),
     url(r'^surplus$', views.CapitalSurplusList.as_view()),

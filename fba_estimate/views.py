@@ -823,7 +823,7 @@ def create_month_ls(export_month):
     return month_ls
 
 
-# 现金流监控表每个一级业务中的二级业务所在行
+# 现金流监控表每个一级业务中的二级业务所在行, 新增业务时，修改下面的行数
 first_service_opt = [
     {
         'name': '标准DRAM',
@@ -835,23 +835,23 @@ first_service_opt = [
     {
         'name': '模组',
         'in_start': 21,
-        'in_end': 22,
-        'out_start': 24,
-        'out_end': 25
+        'in_end': 23,
+        'out_start': 25,
+        'out_end': 27
     },
     {
         'name': '大带宽产品',
-        'in_start': 31,
-        'in_end': 33,
-        'out_start': 35,
-        'out_end': 37
+        'in_start': 33,
+        'in_end': 35,
+        'out_start': 37,
+        'out_end': 39
     },
     {
         'name': '设计服务',
-        'in_start': 42,
-        'in_end': 43,
-        'out_start': 45,
-        'out_end': 46
+        'in_start': 44,
+        'in_end': 45,
+        'out_start': 47,
+        'out_end': 48
     },
 ]
 

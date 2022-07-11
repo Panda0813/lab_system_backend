@@ -23,6 +23,7 @@ urlpatterns = [
     url(r'^currency$', CurrencyListGeneric.as_view()),
     url(r'^currency/(?P<pk>[0-9]+)$', CurrencyDetailGeneric.as_view()),
     url(r'^fba-estimate/', include('fba_estimate.urls')),
+    url(r'^pwm-cost/', include('pwm_cost.urls')),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^docs/$', schema_view, name='docs'),
     url(r'^media/(?P<path>.*)$', serve, {'document_root': MEDIA_ROOT}),

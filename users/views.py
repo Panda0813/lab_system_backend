@@ -49,7 +49,7 @@ class RoleListGeneric(generics.ListCreateAPIView):
         user_roles = [item['role_code'] for item in list(user_roles)]
         if not distribute:
             if 'developer' not in user_roles:
-                managerRoles = list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles))
+                managerRoles = list(set(['gcManager', 'labManager', 'fbaManager', 'pwmManager']) & set(user_roles))
                 tag_ls = []
                 for role_name in managerRoles:
                     rep = re.findall(r'(.*?)Manager', role_name)
@@ -289,7 +289,7 @@ class UserListGeneric(generics.ListAPIView):
         user_roles = [item['role_code'] for item in list(user_roles)]
         if 'developer' in user_roles:
             pass
-        elif list(set(['gcManager', 'labManager', 'fbaManager']) & set(user_roles)):
+        elif list(set(['gcManager', 'labManager', 'fbaManager', 'pwmManager']) & set(user_roles)):
             queryset = queryset.filter(is_superuser=False)
         elif 'labSectionManager' in user_roles:
             section_id = req_user.section_id

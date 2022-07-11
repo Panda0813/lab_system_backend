@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework_swagger',
     'gc_foundry',
     'fba_estimate',
+    'pwm_cost',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -164,7 +165,8 @@ DATABASES = {
         'USER': 'DBConUser',
         'PASSWORD': 'Uniic8253Yw#',
         'OPTIONS': {
-            'driver': 'ODBC Driver 11 for SQL Server',
+            # 'driver': 'ODBC Driver 11 for SQL Server',
+            'driver': 'ODBC Driver 17 for SQL Server',
             'MARS_Connection': True,
         },
     }
@@ -269,7 +271,7 @@ EMAIL_HOST = 'smtp.263.net'  # 如果是 163 改成 smtp.163.com
 EMAIL_PORT = 465
 EMAIL_HOST_USER = 'uniic_lab_bot@unisemicon.com'  # 帐号
 EMAIL_HOST_PASSWORD = 'lab123'   # 密码
-EMAIL_FROM = '<uniic_module_robot@unisemicon.com>'
+EMAIL_FROM = '<uniic_lab_robot@unisemicon.com>'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 

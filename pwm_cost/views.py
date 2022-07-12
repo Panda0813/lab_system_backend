@@ -849,8 +849,8 @@ def query_wafer_price(ids):
                         (select max(id) as max_id from pwm_cost_wafer_price
                           where is_delete=0 group by wafer_id) as w_max
                       on w_max.max_id=wp.id) a
-                where b.id {}
-                inner join pwm_cost_grain_info b on a.wafer_id = b.wafer_id'''
+                inner join pwm_cost_grain_info b on a.wafer_id = b.wafer_id
+                where b.id {}'''
     if len(ids) == 1:
         fmt = "= '{}'".format(ids[0])
     else:

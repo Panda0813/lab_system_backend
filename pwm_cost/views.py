@@ -446,6 +446,40 @@ def get_upload_template(request):
     return create_excel_resp(file_path, file_name)
 
 
+# 合并计算wafer成本
+def calculate_wafer_price(ndf):
+    # 追加有bom的wafer
+    bom_qs = WaferInfo.objects.filter(has_bom=True).values('id')
+    if bom_qs:
+        base_bom_df = pd.DataFrame(list(bom_qs))
+        base_bom_df.rename(columns={'id': 'wafer_id'}, inplace=True)
+        ndf = pd.concat([ndf, base_bom_df], axis=0)
+    ndf.drop_duplicates('wafer_id', inplace=True)
+    wafer_id_ls = list(ndf['wafer_id'].unique())
+    wafer_qs = WaferInfo.objects.filter(id__in=wafer_id_ls).values('id', 'project__name', 'general', 'subdivision',
+                                                                   'technology', 'gross_die', 'has_bom')
+    info_df = pd.DataFrame(list(wafer_qs))
+    info_df.rename(columns={'id': 'wafer_id', 'project__name': 'project_name'}, inplace=True)
+    ndf = pd.merge(ndf, info_df, how='outer', on='wafer_id')
+    mdf = ndf.replace({np.nan: None})
+    datas = mdf.to_dict('records')
+    final_datas = []
+    for d in datas:
+        if d['has_bom']:
+            wafer_obj = WaferInfo.objects.get(id=d['wafer_id']).belong_wafer.values('wafer_source_id', 'count')
+            source_df = pd.DataFrame(list(wafer_obj))
+            source_df.rename(columns={'wafer_source_id': 'wafer_id'}, inplace=True)
+            bom_df = pd.merge(source_df, mdf, how='inner', on='wafer_id')
+            if not bom_df.empty:
+                bom_df['sum'] = bom_df['purchase_price'] * bom_df['count']
+                d['wafer_price'] = round(bom_df['sum'].sum(), 2)
+                final_datas.append(d)
+        else:
+            d['wafer_price'] = d['purchase_price']
+            final_datas.append(d)
+    return final_datas
+
+
 # 导入wafer成本
 @api_view(['POST'])
 def upload_wafer_price(request):
@@ -468,31 +502,7 @@ def upload_wafer_price(request):
         if ndf.empty:
             res_data['datas'] = []
             return VIEW_SUCCESS(msg='导入成功', data=res_data)
-        # 追加有bom的wafer
-        bom_qs = WaferInfo.objects.filter(has_bom=True).values('id')
-        if bom_qs:
-            base_bom_df = pd.DataFrame(list(bom_qs))
-            base_bom_df.rename(columns={'id': 'wafer_id'}, inplace=True)
-            ndf = pd.concat([ndf, base_bom_df], axis=0)
-        wafer_id_ls = list(ndf['wafer_id'].unique())
-        wafer_qs = WaferInfo.objects.filter(id__in=wafer_id_ls).values('id', 'project__name', 'general', 'subdivision',
-                                                                       'technology', 'gross_die', 'has_bom')
-        info_df = pd.DataFrame(list(wafer_qs))
-        info_df.rename(columns={'id': 'wafer_id', 'project__name': 'project_name'}, inplace=True)
-        mdf = pd.merge(ndf, info_df, how='outer', on='wafer_id')
-        mdf = mdf.replace({np.nan: None})
-        datas = mdf.to_dict('records')
-        for d in datas:
-            if d['has_bom']:
-                wafer_obj = WaferInfo.objects.get(id=d['wafer_id']).belong_wafer.values('wafer_source_id', 'count')
-                source_df = pd.DataFrame(list(wafer_obj))
-                source_df.rename(columns={'wafer_source_id': 'wafer_id'}, inplace=True)
-                bom_df = pd.merge(source_df, mdf, how='left', on='wafer_id')
-                bom_df['sum'] = bom_df['purchase_price'] * bom_df['count']
-                d['wafer_price'] = round(bom_df['sum'].sum(), 2)
-            else:
-                d['wafer_price'] = d['purchase_price']
-        res_data['datas'] = datas
+        res_data['datas'] = calculate_wafer_price(ndf)
         return VIEW_SUCCESS(msg='导入成功', data=res_data)
     except Exception as e:
         logger.error('文件解析出错, error:{}'.format(str(e)))
@@ -511,22 +521,12 @@ def recalculate_wafer_price(request):
         if not datas:
             return REST_FAIL({'msg': '提交数据不能为空'})
         ndf = pd.DataFrame(datas)
-        mdf = ndf[['wafer_id', 'project_name', 'general', 'subdivision', 'technology', 'gross_die', 'has_bom',
-                   'price_source', 'supplier', 'purchase_price', 'order_date']]
+        base_df = pd.DataFrame(columns=['wafer_id', 'price_source', 'supplier', 'purchase_price', 'order_date'],
+                               dtype=object)
+        ndf = pd.concat([base_df, ndf], axis=0)
+        ndf = ndf[['wafer_id', 'price_source', 'supplier', 'purchase_price', 'order_date']]
         ndf['purchase_price'] = ndf['purchase_price'].map(lambda x: float(x) if x else x)
-        mdf = mdf.replace({np.nan: None})
-        datas = mdf.to_dict('records')
-        for d in datas:
-            if d['has_bom']:
-                wafer_obj = WaferInfo.objects.get(id=d['wafer_id']).belong_wafer.values('wafer_source_id', 'count')
-                source_df = pd.DataFrame(list(wafer_obj))
-                source_df.rename(columns={'wafer_source_id': 'wafer_id'}, inplace=True)
-                bom_df = pd.merge(source_df, mdf, how='left', on='wafer_id')
-                bom_df['purchase_price'] = bom_df['purchase_price'].map(lambda x: float(x) if x else x)
-                bom_df['sum'] = bom_df['purchase_price'] * bom_df['count']
-                d['wafer_price'] = round(bom_df['sum'].sum(), 2)
-            else:
-                d['wafer_price'] = d['purchase_price']
+        datas = calculate_wafer_price(ndf)
         return REST_SUCCESS(data=datas)
     except Exception as e:
         logger.error('测算出错, error:{}'.format(str(e)))
@@ -884,20 +884,20 @@ def calculate_grain_price(pdf, ydf):
         pdf[['wafer_yld', 'ft_yld', 'ap_yld', 'bi_yld', 'ft1_yld', 'ft2_yld', 'ft3_yld', 'ft4_yld', 'ft5_yld', 'ft6_yld']].fillna(1)
     pdf['wafer_amt'] = round(pdf['hb_up'] + pdf['cp_up'] + pdf['rdl_up'] + pdf['bp_up'], 2)  # 计算前段费用
     # 先计算各段成本
-    pdf['ap_amt'] = round(pdf['ap_up'] * pdf['ap_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
-    pdf['bi_amt'] = round(pdf['bi_up'] * pdf['ap_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
-    pdf['ft1_amt'] = round(pdf['ft1_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
+    pdf['ap_amt'] = round(pdf['ap_up'] * pdf['ap_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
+    pdf['bi_amt'] = round(pdf['bi_up'] * pdf['ap_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
+    pdf['ft1_amt'] = round(pdf['ft1_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
     pdf['ft2_amt'] = round(pdf['ft2_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['ft1_yld'] * pdf['wafer_yld'] *
                            pdf['gross_die'], 2)
     pdf['ft3_amt'] = round(pdf['ft3_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['ft1_yld'] * pdf['ft2_yld'] *
-                           pdf['wafer_yld'] * pdf['gross_die'], 2)
+                           pdf['wafer_yld'] * pdf['gross_die'], 3)
     pdf['ft4_amt'] = round(pdf['ft4_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['ft1_yld'] * pdf['ft2_yld'] *
-                           pdf['ft3_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
+                           pdf['ft3_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
     pdf['ft5_amt'] = round(pdf['ft5_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['ft1_yld'] * pdf['ft2_yld'] *
-                           pdf['ft3_yld'] * pdf['ft4_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
+                           pdf['ft3_yld'] * pdf['ft4_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
     pdf['ft6_amt'] = round(pdf['ft6_up'] * pdf['ap_yld'] * pdf['bi_yld'] * pdf['ft1_yld'] * pdf['ft2_yld'] *
-                           pdf['ft3_yld'] * pdf['ft4_yld'] * pdf['ft5_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
-    pdf['msp_amt'] = round(pdf['msp_up'] * pdf['ft_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 2)
+                           pdf['ft3_yld'] * pdf['ft4_yld'] * pdf['ft5_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
+    pdf['msp_amt'] = round(pdf['msp_up'] * pdf['ft_yld'] * pdf['wafer_yld'] * pdf['gross_die'], 3)
     pdf['ft_amt'] = pdf['ap_amt'] + pdf['bi_amt'] + pdf['ft1_amt'] + pdf['ft2_amt'] + \
                     pdf['ft3_amt'] + pdf['ft4_amt'] + pdf['ft5_amt'] + pdf['ft6_amt'] + pdf['msp_amt']
     pdf['ic_up'] = round(pdf['purchase_price'] + ((pdf['wafer_price'] + pdf['wafer_amt'] + pdf['ft_amt']) /
@@ -979,7 +979,7 @@ def recalculate_grain_data(request):
             return REST_FAIL({'msg': '请求参数解析错误,请确认格式正确后上传', 'error': str(e)})
         yield_data = req_dic.get('yield_data')
         if not yield_data:
-            return REST_FAIL({'msg': '提交数据不能为空'})
+            return REST_FAIL({'msg': '良率数据不能为空'})
         price_data = req_dic.get('price_data', [])
         res_data = {}
         # 重新测算良率
@@ -1035,7 +1035,7 @@ def save_upload_grain_data(request):
         price_file_name = req_dic.get('price_file_name')
         price_data = req_dic.get('price_data', [])
         if not yield_data or not price_data:
-            return REST_FAIL({'msg': '提交数据不能为空'})
+            return REST_FAIL({'msg': '良率或成本不能为空'})
         yield_sql = '''insert into pwm_cost_grain_yld(hb_yld, cp_yld, rdl_yld, bp_yld, wafer_yld, ap_yld, bi_yld, 
                                 ft1_yld, ft2_yld, ft3_yld,ft4_yld, ft5_yld, ft6_yld, ft_yld, period, create_time, 
                                 update_time,is_delete, grain_id, upload_id, user_id, wafer_id)

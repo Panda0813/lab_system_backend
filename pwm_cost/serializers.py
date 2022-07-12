@@ -44,6 +44,7 @@ class WaferInfoSerializer(serializers.ModelSerializer):
         return wafer
 
     def update(self, instance, validated_data):
+        has_bom = validated_data.get('has_bom')
         belong_wafer = validated_data.pop('belong_wafer', [])
         new_source_id = []
         if belong_wafer:
@@ -55,21 +56,24 @@ class WaferInfoSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             save_id = transaction.savepoint()
             try:
-                if list(set(old_source_id) ^ set(new_source_id)):
+                if has_bom == False:
                     instance.belong_wafer.all().delete()
-                    for _fields in belong_wafer:
-                        wafer_source = _fields['wafer_source']
-                        count = _fields['count']
-                        remarks = _fields['remarks']
-                        WaferBom.objects.create(belong_wafer=instance, wafer_source=wafer_source,
-                                                count=count, remarks=remarks)
                 else:
-                    for _fields in belong_wafer:
-                        wafer_source = _fields['wafer_source']
-                        count = _fields['count']
-                        remarks = _fields['remarks']
-                        WaferBom.objects.filter(belong_wafer=instance, wafer_source=wafer_source).\
-                            update(count=count, remarks=remarks)
+                    if list(set(old_source_id) ^ set(new_source_id)):
+                        instance.belong_wafer.all().delete()
+                        for _fields in belong_wafer:
+                            wafer_source = _fields['wafer_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            WaferBom.objects.create(belong_wafer=instance, wafer_source=wafer_source,
+                                                    count=count, remarks=remarks)
+                    else:
+                        for _fields in belong_wafer:
+                            wafer_source = _fields['wafer_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            WaferBom.objects.filter(belong_wafer=instance, wafer_source=wafer_source).\
+                                update(count=count, remarks=remarks)
                 transaction.savepoint_commit(save_id)
             except Exception as e:
                 transaction.savepoint_rollback(save_id)
@@ -113,6 +117,7 @@ class GrainInfoSerializer(serializers.ModelSerializer):
         return grain
 
     def update(self, instance, validated_data):
+        has_bom = validated_data.get('has_bom')
         belong_grain = validated_data.pop('belong_grain', [])
         new_source_id = []
         if belong_grain:
@@ -124,21 +129,24 @@ class GrainInfoSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             save_id = transaction.savepoint()
             try:
-                if list(set(old_source_id) ^ set(new_source_id)):
+                if has_bom == False:
                     instance.belong_grain.all().delete()
-                    for _fields in belong_grain:
-                        grain_source = _fields['grain_source']
-                        count = _fields['count']
-                        remarks = _fields['remarks']
-                        GrainBom.objects.create(belong_grain=instance, grain_source=grain_source,
-                                                count=count, remarks=remarks)
                 else:
-                    for _fields in belong_grain:
-                        grain_source = _fields['grain_source']
-                        count = _fields['count']
-                        remarks = _fields['remarks']
-                        GrainBom.objects.filter(belong_grain=instance, grain_source=grain_source).\
-                            update(count=count, remarks=remarks)
+                    if list(set(old_source_id) ^ set(new_source_id)):
+                        instance.belong_grain.all().delete()
+                        for _fields in belong_grain:
+                            grain_source = _fields['grain_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            GrainBom.objects.create(belong_grain=instance, grain_source=grain_source,
+                                                    count=count, remarks=remarks)
+                    else:
+                        for _fields in belong_grain:
+                            grain_source = _fields['grain_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            GrainBom.objects.filter(belong_grain=instance, grain_source=grain_source).\
+                                update(count=count, remarks=remarks)
                 transaction.savepoint_commit(save_id)
             except Exception as e:
                 transaction.savepoint_rollback(save_id)

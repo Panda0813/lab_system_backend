@@ -35,8 +35,6 @@ class WaferInfo(models.Model):
     remarks = models.TextField(verbose_name='备注', null=True)
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
 
-    objects = QuerySetManage()
-
     class Meta:
         db_table = 'pwm_cost_wafer_info'
         verbose_name = 'wafer基础信息表'
@@ -205,8 +203,6 @@ class GrainInfo(models.Model):
     update_time = models.DateTimeField(verbose_name='更新时间', auto_now=True, auto_now_add=False)
     remarks = models.TextField(verbose_name='备注', null=True)
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
-
-    objects = QuerySetManage()
 
     class Meta:
         db_table = 'pwm_cost_grain_info'

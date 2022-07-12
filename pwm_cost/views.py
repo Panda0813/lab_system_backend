@@ -38,18 +38,19 @@ def get_wafer_maps(request):
     subdivision_base = ['Dram', 'Logic']
     technology_base = ['25nm', '38nm', '45nm', '55nm', '63nm']
     wafer_maps = {'general_type': general_base, 'subdivision_type': subdivision_base, 'technology_type': technology_base}
-    # general_qs = WaferInfo.objects.values('general').distinct()
+    wafer_obj = WaferInfo.objects.filter(is_delete=False)
+    # general_qs = wafer_obj.values('general').distinct()
     # if general_qs:
     #     general_qs = [item['general'] for item in list(general_qs) if item['general']]
     #     general_base.extend(general_qs)
     #     wafer_maps['general_type'] = list(set(general_base))
-    subdivision_qs = WaferInfo.objects.values('subdivision').distinct()
+    subdivision_qs = wafer_obj.values('subdivision').distinct()
     if subdivision_qs:
         subdivision_qs = [item['subdivision'] for item in list(subdivision_qs) if item['subdivision']]
         subdivision_base.extend(subdivision_qs)
         wafer_maps['subdivision_type'] = list(set(subdivision_base))
         wafer_maps['subdivision_type'].sort()
-    technology_qs = WaferInfo.objects.values('technology').distinct()
+    technology_qs = wafer_obj.values('technology').distinct()
     if technology_qs:
         technology_qs = [item['technology'] for item in list(technology_qs) if item['technology']]
         technology_base.extend(technology_qs)
@@ -60,7 +61,7 @@ def get_wafer_maps(request):
 
 class WaferInfoGeneric(generics.ListCreateAPIView):
     model = WaferInfo
-    queryset = model.objects.all()
+    queryset = model.objects.filter(is_delete=False).all()
     serializer_class = WaferInfoSerializer
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
@@ -101,15 +102,48 @@ class WaferInfoGeneric(generics.ListCreateAPIView):
     @set_create_log
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        wafer_id = request.data.get('id')
+        exist_qs = WaferInfo.objects.filter(id=wafer_id)
+        if exist_qs:
+            serializer.is_valid(raise_exception=False)
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    req_data = {}
+                    req_data['project'] = request.data.get('project')
+                    req_data['general'] = request.data.get('general')
+                    req_data['subdivision'] = request.data.get('subdivision')
+                    req_data['technology'] = request.data.get('technology')
+                    req_data['gross_die'] = request.data.get('gross_die', 0)
+                    req_data['has_bom'] = request.data.get('has_bom')
+                    if req_data['has_bom']:
+                        belong_wafer = request.data.get('belong_wafer')
+                        for _fields in belong_wafer:
+                            wafer_source = _fields['wafer_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            WaferBom.objects.create(belong_wafer_id=wafer_id, wafer_source_id=wafer_source,
+                                                    count=count, remarks=remarks)
+                    exist_qs.update(is_delete=False, **req_data)
+                    new_data = {'id': exist_qs.first().id}
+                    new_data.update(serializer.data)
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('wafer信息新增失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('wafer信息新增失败')
+            headers = self.get_success_headers(serializer.data)
+            return Response(new_data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class WaferDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     model = WaferInfo
-    queryset = model.objects.all()
+    queryset = model.objects.filter(is_delete=False).all()
     serializer_class = WaferInfoSerializer
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
@@ -132,6 +166,8 @@ class WaferDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     @set_delete_log
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        del_id = instance.id
+        WaferBom.objects.filter(belong_wafer_id=del_id).delete()
         self.perform_destroy(instance)
         return REST_SUCCESS({'msg': '删除成功'})
 
@@ -182,17 +218,18 @@ def get_grain_maps(request):
     subdivision_base = ['KGD', 'DRAM', 'ASIC']
     technology_base = ['25nm', '38nm', '45nm', '55nm', '63nm']
     grain_maps = {'general_type': general_base, 'subdivision_type': subdivision_base, 'technology_type': technology_base}
-    # general_qs = GrainInfo.objects.values('general').distinct()
+    grain_obj = GrainInfo.objects.filter(is_delete=False)
+    # general_qs = grain_obj.values('general').distinct()
     # if general_qs:
     #     general_qs = [item['general'] for item in list(general_qs) if item['general']]
     #     general_base.extend(general_qs)
     #     grain_maps['general_type'] = list(set(general_base))
-    subdivision_qs = GrainInfo.objects.values('subdivision').distinct()
+    subdivision_qs = grain_obj.values('subdivision').distinct()
     if subdivision_qs:
         subdivision_qs = [item['subdivision'] for item in list(subdivision_qs) if item['subdivision']]
         subdivision_base.extend(subdivision_qs)
         grain_maps['subdivision_type'] = list(set(subdivision_base))
-    technology_qs = GrainInfo.objects.values('technology').distinct()
+    technology_qs = grain_obj.values('technology').distinct()
     if technology_qs:
         technology_qs = [item['technology'] for item in list(technology_qs) if item['technology']]
         technology_base.extend(technology_qs)
@@ -203,7 +240,7 @@ def get_grain_maps(request):
 
 class GrainInfoGeneric(generics.ListCreateAPIView):
     model = GrainInfo
-    queryset = model.objects.all().order_by('-create_time')
+    queryset = model.objects.filter(is_delete=False).all().order_by('-create_time')
     serializer_class = GrainInfoSerializer
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
@@ -244,15 +281,53 @@ class GrainInfoGeneric(generics.ListCreateAPIView):
     @set_create_log
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        grain_id = request.data.get('id')
+        exist_qs = GrainInfo.objects.filter(id=grain_id)
+        if exist_qs:
+            serializer.is_valid(raise_exception=False)
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    req_data = {}
+                    req_data['wafer'] = request.data.get('wafer')
+                    req_data['project'] = request.data.get('project')
+                    req_data['general'] = request.data.get('general')
+                    req_data['subdivision'] = request.data.get('subdivision')
+                    req_data['technology'] = request.data.get('technology')
+                    req_data['package_mode'] = request.data.get('package_mode')
+                    req_data['package_size'] = request.data.get('package_size')
+                    req_data['grade'] = request.data.get('grade')
+                    req_data['type'] = request.data.get('type')
+                    req_data['sub_con'] = request.data.get('sub_con')
+                    req_data['has_bom'] = request.data.get('has_bom')
+                    if req_data['has_bom']:
+                        belong_grain = request.data.get('belong_grain')
+                        for _fields in belong_grain:
+                            grain_source = _fields['grain_source']
+                            count = _fields['count']
+                            remarks = _fields['remarks']
+                            GrainBom.objects.create(belong_grain_id=grain_id, grain_source_id=grain_source,
+                                                    count=count, remarks=remarks)
+                    exist_qs.update(is_delete=False, **req_data)
+                    new_data = {'id': exist_qs.first().id}
+                    new_data.update(serializer.data)
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('grain信息新增失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('grain信息新增失败')
+            headers = self.get_success_headers(serializer.data)
+            return Response(new_data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class GrainDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     model = GrainInfo
-    queryset = model.objects.all()
+    queryset = model.objects.filter(is_delete=False).all()
     serializer_class = GrainInfoSerializer
     table_name = model._meta.db_table
     verbose_name = model._meta.verbose_name
@@ -275,6 +350,8 @@ class GrainDetailGeneric(generics.RetrieveUpdateDestroyAPIView):
     @set_delete_log
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        del_id = instance.id
+        GrainBom.objects.filter(belong_grain_id=del_id).delete()
         self.perform_destroy(instance)
         return REST_SUCCESS({'msg': '删除成功'})
 
@@ -449,14 +526,14 @@ def get_upload_template(request):
 # 合并计算wafer成本
 def calculate_wafer_price(ndf):
     # 追加有bom的wafer
-    bom_qs = WaferInfo.objects.filter(has_bom=True).values('id')
+    bom_qs = WaferInfo.objects.filter(has_bom=True, is_delete=False).values('id')
     if bom_qs:
         base_bom_df = pd.DataFrame(list(bom_qs))
         base_bom_df.rename(columns={'id': 'wafer_id'}, inplace=True)
         ndf = pd.concat([ndf, base_bom_df], axis=0)
     ndf.drop_duplicates('wafer_id', inplace=True)
     wafer_id_ls = list(ndf['wafer_id'].unique())
-    wafer_qs = WaferInfo.objects.filter(id__in=wafer_id_ls).values('id', 'project__name', 'general', 'subdivision',
+    wafer_qs = WaferInfo.objects.filter(id__in=wafer_id_ls, is_delete=False).values('id', 'project__name', 'general', 'subdivision',
                                                                    'technology', 'gross_die', 'has_bom')
     info_df = pd.DataFrame(list(wafer_qs))
     info_df.rename(columns={'id': 'wafer_id', 'project__name': 'project_name'}, inplace=True)
@@ -800,7 +877,7 @@ def calculate_yield(ydf):
     ydf['ft_yld'] = round(ydf['ap_yld'] * ydf['bi_yld'] * ydf['ft1_yld'] * ydf['ft2_yld']
                           * ydf['ft3_yld'] * ydf['ft4_yld'] * ydf['ft5_yld'] * ydf['ft6_yld'], 4)
     grain_id_ls = list(ydf['grain_id'].unique())
-    grain_qs = GrainInfo.objects.filter(id__in=grain_id_ls).values('id', 'wafer_id', 'has_bom')
+    grain_qs = GrainInfo.objects.filter(id__in=grain_id_ls, is_delete=False).values('id', 'wafer_id', 'has_bom')
     info_df = pd.DataFrame(list(grain_qs))
     info_df.rename(columns={'id': 'grain_id'}, inplace=True)
     ydf = pd.merge(ydf, info_df, how='outer', on='grain_id')
@@ -865,7 +942,7 @@ def query_wafer_price(ids):
 def calculate_grain_price(pdf, ydf):
     grain_id_ls = list(pdf['grain_id'].unique())
     # 拼接wafer信息
-    grain_qs = GrainInfo.objects.filter(id__in=grain_id_ls).values('id', 'wafer_id', 'wafer__gross_die', 'has_bom')
+    grain_qs = GrainInfo.objects.filter(id__in=grain_id_ls, is_delete=False).values('id', 'wafer_id', 'wafer__gross_die', 'has_bom')
     info_df = pd.DataFrame(list(grain_qs))
     info_df.rename(columns={'id': 'grain_id', 'wafer__gross_die': 'gross_die'}, inplace=True)
     pdf = pd.merge(pdf, info_df, how='outer', on='grain_id')  # 合并wafer信息和测试费

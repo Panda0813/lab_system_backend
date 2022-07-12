@@ -844,11 +844,13 @@ def upload_grain_yield(request):
 
 # 查询wafer最新成本
 def query_wafer_price(ids):
-    sql = '''select a.wafer_id, b.id as grain_id, wafer_price, a.create_time
-                from (select * from pwm_cost_wafer_price order by create_time desc) a
-                inner join pwm_cost_grain_info b on a.wafer_id = b.wafer_id
+    sql = '''select a.wafer_id, b.id as grain_id, a.wafer_price, a.create_time
+                from (select * from pwm_cost_wafer_price wp inner join
+                        (select max(id) as max_id from pwm_cost_wafer_price
+                          where is_delete=0 group by wafer_id) as w_max
+                      on w_max.max_id=wp.id) a
                 where b.id {}
-                group by a.wafer_id, b.id'''
+                inner join pwm_cost_grain_info b on a.wafer_id = b.wafer_id'''
     if len(ids) == 1:
         fmt = "= '{}'".format(ids[0])
     else:

@@ -686,7 +686,7 @@ def export_wafer_price(request):
         qs = queryset.order_by('create_time').values('wafer_id', 'wafer__project__name', 'wafer__general',
                                                       'wafer__subdivision', 'wafer__technology', 'wafer__gross_die',
                                                       'price_source', 'supplier', 'purchase_price', 'order_date',
-                                                      'wafer_price', 'create_time')
+                                                      'wafer_price', 'create_time', 'user__username')
         blank_path = os.path.dirname(__file__) + '/blank_files/Wafer成本信息.xlsx'
         if not qs:
             return create_excel_resp(blank_path, 'Wafer成本信息')
@@ -695,8 +695,8 @@ def export_wafer_price(request):
         df['wafer_price'] = df['wafer_price'].map(lambda x: float(x) if x else x)
         df['create_time'] = df['create_time'].map(lambda x: x.strftime('%Y-%m-%d %H:%M:%S'))
         ndf = df[['wafer_id', 'wafer__project__name', 'wafer__general', 'wafer__subdivision', 'wafer__technology',
-                  'wafer__gross_die', 'price_source', 'supplier', 'purchase_price', 'order_date', 'create_time',
-                  'wafer_price']]
+                  'wafer__gross_die', 'price_source', 'supplier', 'purchase_price', 'order_date', 'wafer_price',
+                  'user__username', 'create_time']]
         rename_maps = {
             'wafer_id': 'Wafer 型号',
             'wafer__project__name': '项目',
@@ -709,7 +709,8 @@ def export_wafer_price(request):
             'purchase_price': '采购单价',
             'order_date': '下单日期',
             'create_time': '提交日期',
-            'wafer_price': 'Wafer U/P'
+            'wafer_price': 'Wafer U/P',
+            'user__username': '提交人'
         }
         ndf.rename(rename_maps, axis=1, inplace=True)
         file_path, file_name = get_file_path('wafer', 'export_files')
@@ -732,17 +733,19 @@ def export_wafer_price(request):
         for col_num, value in enumerate(ndf.columns.values):
             worksheet.write(0, col_num, value, title_fmt)
         worksheet.conditional_format('A1:F1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
-        worksheet.conditional_format('G1:K1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffc000'})})
-        worksheet.conditional_format('L1:L1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ff0000'})})
+        worksheet.conditional_format('G1:J1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffc000'})})
+        worksheet.conditional_format('K1:K1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ff0000'})})
+        worksheet.conditional_format('L1:M1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
         worksheet.set_column('A:B', 15.5, fmt)
         worksheet.set_column('C:E', 10, center_fmt)
         worksheet.set_column('F:H', 12, fmt)
         worksheet.set_column('I:I', 9, float_fmt)
         worksheet.set_column('J:J', 10, ts_fmt)
-        worksheet.set_column('K:K', 18, right_fmt)
-        worksheet.set_column('L:L', 11, float_fmt)
-        worksheet.conditional_format('A1:L%d' % l_end, {'type': 'blanks', 'format': border_format})
-        worksheet.conditional_format('A1:L%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+        worksheet.set_column('K:K', 11, float_fmt)
+        worksheet.set_column('L:L', 10, right_fmt)
+        worksheet.set_column('M:M', 18, right_fmt)
+        worksheet.conditional_format('A1:M%d' % l_end, {'type': 'blanks', 'format': border_format})
+        worksheet.conditional_format('A1:M%d' % l_end, {'type': 'no_blanks', 'format': border_format})
         writer.save()
         return create_excel_resp(file_path, 'Wafer成本信息')
     except Exception as e:
@@ -1212,7 +1215,8 @@ def export_grain_yield(request):
                                                      'grain__package_mode', 'grain__package_size', 'grain__grade',
                                                      'grain__type', 'grain__sub_con', 'hb_yld', 'cp_yld', 'rdl_yld',
                                                      'bp_yld', 'wafer_yld', 'ap_yld', 'bi_yld', 'ft1_yld', 'ft2_yld',
-                                                     'ft3_yld', 'ft4_yld', 'ft5_yld', 'ft6_yld', 'ft_yld', 'create_time')
+                                                     'ft3_yld', 'ft4_yld', 'ft5_yld', 'ft6_yld', 'ft_yld',
+                                                     'create_time', 'user__username')
         blank_path = os.path.dirname(__file__) + '/blank_files/颗粒良率数据.xlsx'
         if not qs:
             return create_excel_resp(blank_path, '颗粒良率数据')
@@ -1225,7 +1229,7 @@ def export_grain_yield(request):
         ndf = df[['wafer_id', 'wafer__gross_die', 'grain_id', 'grain__project__name', 'grain__general',
                   'grain__subdivision', 'grain__technology', 'grain__package_mode', 'grain__package_size', 'grain__grade',
                   'grain__type', 'grain__sub_con', 'hb_yld', 'cp_yld', 'rdl_yld','bp_yld', 'wafer_yld', 'ap_yld',
-                  'bi_yld', 'ft1_yld', 'ft2_yld','ft3_yld', 'ft4_yld', 'ft5_yld', 'ft6_yld', 'ft_yld', 'create_time']]
+                  'bi_yld', 'ft1_yld', 'ft2_yld','ft3_yld', 'ft4_yld', 'ft5_yld', 'ft6_yld', 'ft_yld', 'user__username', 'create_time']]
         rename_maps = {
             'wafer_id': 'Wafer 型号',
             'wafer__gross_die': 'Gross die数量',
@@ -1253,7 +1257,8 @@ def export_grain_yield(request):
             'ft5_yld': 'FT5 YLD',
             'ft6_yld': 'FT6 YLD',
             'ft_yld': 'TTL FT YLD',
-            'create_time': '提交日期'
+            'create_time': '提交日期',
+            'user__username': '提交人'
         }
         ndf.rename(rename_maps, axis=1, inplace=True)
         file_path, file_name = get_file_path('yield', 'export_files')
@@ -1278,7 +1283,7 @@ def export_grain_yield(request):
         worksheet.conditional_format('Q1:Q1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffff00'})})
         worksheet.conditional_format('R1:Y1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
         worksheet.conditional_format('Z1:Z1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffff00'})})
-        worksheet.conditional_format('AA1:AA1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
+        worksheet.conditional_format('AA1:AB1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
         worksheet.set_column('A:A', 15.5, fmt)
         worksheet.set_column('B:B', 12, fmt)
         worksheet.set_column('C:C', 18, fmt)
@@ -1287,9 +1292,10 @@ def export_grain_yield(request):
         worksheet.set_column('I:I', 11.5, fmt)
         worksheet.set_column('J:L', 9, fmt)
         worksheet.set_column('M:Z', 9, percent_fmt)
-        worksheet.set_column('AA:AA', 18, right_fmt)
-        worksheet.conditional_format('A1:AA%d' % l_end, {'type': 'blanks', 'format': border_format})
-        worksheet.conditional_format('A1:AA%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+        worksheet.set_column('AA:AA', 10, right_fmt)
+        worksheet.set_column('AB:AB', 18, right_fmt)
+        worksheet.conditional_format('A1:AB%d' % l_end, {'type': 'blanks', 'format': border_format})
+        worksheet.conditional_format('A1:AB%d' % l_end, {'type': 'no_blanks', 'format': border_format})
         writer.save()
         return create_excel_resp(file_path, '颗粒良率数据')
     except Exception as e:
@@ -1319,7 +1325,8 @@ def export_grain_price(request):
                                                      'rdl_up', 'bp_up', 'wafer_amt', 'ap_up', 'ap_amt', 'bi_up', 'bi_amt',
                                                      'ft1_up', 'ft1_amt', 'ft2_up', 'ft2_amt', 'ft3_up', 'ft3_amt',
                                                      'ft4_up', 'ft4_amt', 'ft5_up', 'ft5_amt', 'ft6_up', 'ft6_amt',
-                                                     'msp_up', 'msp_amt', 'ft_amt', 'ic_up', 'die_up', 'ft_up', 'create_time')
+                                                     'msp_up', 'msp_amt', 'ft_amt', 'ic_up', 'die_up', 'ft_up',
+                                                     'create_time', 'user__username')
         blank_path = os.path.dirname(__file__) + '/blank_files/颗粒测试费数据.xlsx'
         if not qs:
             return create_excel_resp(blank_path, '颗粒测试费数据')
@@ -1335,7 +1342,8 @@ def export_grain_price(request):
                   'grain__technology', 'grain__package_mode', 'grain__package_size', 'grain__grade', 'grain__type',
                   'grain__sub_con', 'wafer_price', 'purchase_price', 'hb_up', 'cp_up', 'rdl_up', 'bp_up', 'wafer_amt', 'ap_up', 'ap_amt',
                   'bi_up', 'bi_amt', 'ft1_up', 'ft1_amt', 'ft2_up', 'ft2_amt', 'ft3_up', 'ft3_amt', 'ft4_up', 'ft4_amt',
-                  'ft5_up', 'ft5_amt', 'ft6_up', 'ft6_amt', 'msp_up', 'msp_amt', 'ft_amt', 'ic_up', 'die_up', 'ft_up', 'create_time']]
+                  'ft5_up', 'ft5_amt', 'ft6_up', 'ft6_amt', 'msp_up', 'msp_amt', 'ft_amt', 'ic_up', 'die_up', 'ft_up',
+                  'user__username', 'create_time']]
         rename_maps = {
             'wafer_id': 'Wafer 型号',
             'wafer__gross_die': 'Gross die数量',
@@ -1377,8 +1385,9 @@ def export_grain_price(request):
             'ft_amt': 'TTL FT 加工费',
             'ic_up': 'IC U/P',
             'die_up': 'Die U/P',
-            'ft_up ': 'FT U/P',
-            'create_time': '提交日期'
+            'ft_up': 'FT U/P',
+            'create_time': '提交日期',
+            'user__username': '提交人'
         }
         ndf.rename(rename_maps, axis=1, inplace=True)
         file_path, file_name = get_file_path('price', 'export_files')
@@ -1405,7 +1414,7 @@ def export_grain_price(request):
         worksheet.conditional_format('S1:S1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffff00'})})
         worksheet.conditional_format('T1:AK1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
         worksheet.conditional_format('AL1:AO1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#ffff00'})})
-        worksheet.conditional_format('AP1:AP1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
+        worksheet.conditional_format('AP1:AQ1', {'type': 'no_blanks', 'format': workbook.add_format({'bg_color': '#5b9bd5'})})
         worksheet.set_column('A:A', 15.5, fmt)
         worksheet.set_column('B:B', 12, fmt)
         worksheet.set_column('C:C', 18, fmt)
@@ -1414,9 +1423,10 @@ def export_grain_price(request):
         worksheet.set_column('I:I', 11.5, fmt)
         worksheet.set_column('J:L', 9, fmt)
         worksheet.set_column('M:AO', 9, float_fmt)
-        worksheet.set_column('AP:AP', 18, right_fmt)
-        worksheet.conditional_format('A1:AP%d' % l_end, {'type': 'blanks', 'format': border_format})
-        worksheet.conditional_format('A1:AP%d' % l_end, {'type': 'no_blanks', 'format': border_format})
+        worksheet.set_column('AP:AP', 10, right_fmt)
+        worksheet.set_column('AQ:AQ', 18, right_fmt)
+        worksheet.conditional_format('A1:AQ%d' % l_end, {'type': 'blanks', 'format': border_format})
+        worksheet.conditional_format('A1:AQ%d' % l_end, {'type': 'no_blanks', 'format': border_format})
         writer.save()
         return create_excel_resp(file_path, '颗粒测试费数据')
     except Exception as e:

@@ -296,7 +296,7 @@ class FoundryEquipmentList(generics.ListCreateAPIView):
 
 
 # 修改机台信息
-class FoundryEquipmentDetail(generics.RetrieveUpdateAPIView):
+class FoundryEquipmentDetail(generics.RetrieveUpdateDestroyAPIView):
     model = FoundryEquipment
     queryset = model.objects.all()
     serializer_class = FoundryEquipmentSerializer
@@ -324,6 +324,12 @@ class FoundryEquipmentDetail(generics.RetrieveUpdateAPIView):
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 新增器材配件
@@ -389,7 +395,7 @@ class FoundryToolingList(generics.ListCreateAPIView):
 
 
 # 修改器材配件
-class FoundryToolingDetail(generics.RetrieveUpdateAPIView):
+class FoundryToolingDetail(generics.RetrieveUpdateDestroyAPIView):
     model = FoundryTooling
     queryset = model.objects.all()
     serializer_class = FoundryToolingSerializer
@@ -417,6 +423,12 @@ class FoundryToolingDetail(generics.RetrieveUpdateAPIView):
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 转移设备

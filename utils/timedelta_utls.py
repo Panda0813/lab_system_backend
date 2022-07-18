@@ -22,6 +22,14 @@ def get_holiday(year, date_type):
     return list_holiday
 
 
+# 计算两个时间点中间的工作时间
+def calculate_datediff_(start, end):
+    delta_seconds = (end - start).total_seconds()
+    hours = round((delta_seconds / 3600), 2)
+    return hours
+
+
+# 计算两个时间点中间的工作时间， 跳过非工作时间
 def calculate_datediff(start, end):
     """
     计算两个时间点中间的工作时间
@@ -155,6 +163,7 @@ def calculate_due_date(recalibration_time, module):
     return due_date
 
 
+# 计算校准日期
 def calculate_pm_time(recalibration_time):
     recalibration_month = recalibration_time.month
     if recalibration_month <= 3:

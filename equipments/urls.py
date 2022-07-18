@@ -2,6 +2,7 @@ from django.conf.urls import url
 from equipments import views
 
 urlpatterns = [
+    url(r'^equip-list$', views.get_equipment_list),
     url(r'^list$', views.EquipmentListGeneric.as_view()),
     url(r'^list/(?P<pk>\S+)$', views.EquipmentDetailGeneric.as_view()),
     url(r'^detail$', views.EquipmentDetail.as_view()),
@@ -13,9 +14,15 @@ urlpatterns = [
     url(r'^get-category$', views.get_category),
     url(r'^depreciation$', views.DepreciationListGeneric.as_view()),
     url(r'^depreciation/(?P<pk>[0-9]+)$', views.DepreciationDetailGeneric.as_view()),
-    url(r'^borrow-apply$', views.BorrowListGeneric.as_view()),
-    url(r'^borrow-apply/(?P<pk>[0-9]+)$', views.OperateBorrowRecordGeneric.as_view()),
-    url(r'^allow-borrow-time$', views.get_AllowBorrowTime),
+
+    # url(r'^borrow-apply$', views.BorrowListGeneric.as_view()),
+    # url(r'^borrow-apply/(?P<pk>[0-9]+)$', views.OperateBorrowRecordGeneric.as_view()),
+    # url(r'^allow-borrow-time$', views.get_AllowBorrowTime),
+    # 无审批版本接口
+    url(r'^borrow-apply$', views.BorrowListNoCheck.as_view()),
+    url(r'^borrow-apply/(?P<pk>[0-9]+)$', views.OperateBorrowRecordNoCheck.as_view()),
+    url(r'^allow-borrow-time$', views.allow_borrow_time_public),
+
     url(r'^return-apply$', views.ReturnListGeneric.as_view()),
     url(r'^return-apply/(?P<pk>[0-9]+)$', views.OperateReturnApplyGeneric.as_view()),
     url(r'^broken-info$', views.BrokenInfoGeneric.as_view()),

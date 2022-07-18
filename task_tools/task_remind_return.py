@@ -53,13 +53,13 @@ class RemindReturnTask:
                             user = User.objects.get(id=user_id)
                             borrow_qs = EquipmentBorrowRecord.objects.filter(id=borrow_id)
                             info = '即将到期'
-                            to = [user.email]
-                            send_mail(to, [], info, borrow_qs.first())
+                            if user.email:
+                                to = [user.email]
+                                send_mail(to, [], info, borrow_qs.first())
                             borrow_qs.update(is_final_remind=True)
                         elif delta_seconds < 0 and not is_overtime_remind:  # 超时
                             # TODO 发邮件给使用者,抄送section manager、下一位借用者、实验室管理员，提示设备仪表超时未还
                             user = User.objects.get(id=user_id)
-                            to = [user.email]
 
                             # 查询下一位用户
                             next_user_qs = EquipmentBorrowRecord.objects.filter(start_time__gte=end_time,
@@ -70,11 +70,13 @@ class RemindReturnTask:
                                 next_user = next_user_qs.first().user
                             borrow_qs = EquipmentBorrowRecord.objects.filter(id=borrow_id)
                             info = '已经逾期'
-                            # 查询需要抄送的用户
-                            need_cc_users = User.objects.filter(is_delete=False, need_cc=True).values()
-                            need_cc_email = [item['email'] for item in list(need_cc_users)]
-                            cc = list(set(need_cc_email))
-                            send_mail(to, cc, info, borrow_qs.first())
+                            if user.email:
+                                to = [user.email]
+                                # 查询需要抄送的用户
+                                need_cc_users = User.objects.filter(is_delete=False, need_cc=True).values()
+                                need_cc_email = [item['email'] for item in list(need_cc_users)]
+                                cc = list(set(need_cc_email))
+                                send_mail(to, cc, info, borrow_qs.first())
                             borrow_qs.update(is_overtime_remind=True)
                         transaction.savepoint_commit(save_id)
                     except Exception as e:

@@ -23,6 +23,7 @@ from utils.log_utils import set_update_log, set_delete_log, set_create_log
 from utils.pagination import MyPagePagination
 from lab_system_backend import settings
 from utils.conn_mssql import get_oa_users, get_oa_sections
+from users.utils import get_inner_email
 
 import re
 import traceback
@@ -161,11 +162,10 @@ class UserRegisterView(generics.CreateAPIView):
         else:
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data.copy()
-            email = data.get('email')
-            if email:
-                email_pre = email.split('@')[0]
-                email = email_pre + '@uniic.com'
-            data.update({'email': email})
+            login_id = data.get('login_id')
+            if login_id:
+                email = get_inner_email(login_id)
+                data.update({'email': email})
             section_name = data.get('department')
             section_qs = Section.objects.filter(name=section_name)
             if section_qs:

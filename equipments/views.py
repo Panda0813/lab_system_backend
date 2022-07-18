@@ -25,16 +25,17 @@ from equipments.models import EquipmentBorrowRecord, EquipmentReturnRecord, Equi
 from equipments.serializers import CalibrationCertificateSerializer
 from equipments.ext_utils import analysis_equipment_data, create_excel_resp, \
     analysis_calibration, analysis_maintain, analysis_certificate
-from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS
+from .ext_utils import VIEW_SUCCESS, VIEW_FAIL, execute_batch_sql, REST_FAIL, REST_SUCCESS, dictfetchall
 from utils.log_utils import set_create_log, set_update_log, set_delete_log, get_differ, save_operateLog
 from utils.pagination import MyPagePagination
 from utils.timedelta_utls import calculate_datediff, get_holiday, calculate_end_time, calculate_due_date, \
-    calculate_recalibration_time, calculate_pm_time
+    calculate_recalibration_time, calculate_pm_time, calculate_datediff_
 
 import json
 import re
 import datetime
 import pandas as pd
+import numpy as np
 import os
 import logging
 
@@ -252,6 +253,59 @@ def get_deposit_position(request):
     return REST_SUCCESS(deposit_positions)
 
 
+# 查询设备使用人
+def query_equipment_user():
+    sql = '''select a.equipment_id as id,b.username from
+                  (select * from equipment_borrow_record ebr inner join
+                    (select max(id) as max_id from equipment_borrow_record
+                    where is_return=0 and is_delete=0 group by equipment_id) as ebr_max
+                  on ebr_max.max_id=ebr.id) a
+                  inner join user b on a.user_id=b.id'''
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        qs = dictfetchall(cursor)
+    return qs
+
+
+# 查询设备列表
+@api_view(['GET'])
+def get_equipment_list(request):
+    queryset = Equipment.objects.filter(is_delete=False).all().order_by('create_time')
+    search = request.GET.get('search', '')
+    if search:
+        queryset = queryset.filter(Q(id__contains=search) | Q(name__contains=search))
+    equipment_state = request.GET.get('equipment_state')
+    if equipment_state:
+        equipment_state_ls = equipment_state.split(',')
+        queryset = queryset.filter(equipment_state__in=equipment_state_ls)
+    borrow_tag = request.GET.get('borrow_tag')
+    if borrow_tag:
+        queryset = queryset.filter(equipment_state__in=[1])
+    calibration_state = request.GET.get('calibration_state')
+    if calibration_state:
+        calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
+        calibration_qs = [q['equipment_id'] for q in calibration_qs]
+        queryset = queryset.exclude(id__in=calibration_qs)
+    maintain_tag = request.GET.get('maintain_tag')
+    if maintain_tag:
+        maintain_qs = EquipmentMaintainInfo.objects.all().values('equipment_id')
+        maintain_qs = [q['equipment_id'] for q in maintain_qs]
+        queryset = queryset.exclude(id__in=maintain_qs)
+    fixed_asset_category = request.GET.get('fixed_asset_category')
+    if fixed_asset_category:
+        queryset = queryset.filter(fixed_asset_category=int(fixed_asset_category))
+    qs = queryset.values()
+    equipment_users = query_equipment_user()
+    data = list(qs)
+    if data and equipment_users and not borrow_tag:
+        d1 = pd.DataFrame(data)
+        d2 = pd.DataFrame(equipment_users)
+        df = pd.merge(d1, d2, how='left', on='id')
+        df = df.replace({np.nan: None})
+        data = df.to_dict('records')
+    return REST_SUCCESS(data=data)
+
+
 # 查询设备，新增设备
 class EquipmentListGeneric(generics.ListCreateAPIView):
     model = Equipment
@@ -272,7 +326,7 @@ class EquipmentListGeneric(generics.ListCreateAPIView):
             queryset = queryset.filter(equipment_state__in=equipment_state_ls)
         borrow_tag = request.GET.get('borrow_tag')
         if borrow_tag:
-            queryset = queryset.filter(equipment_state__in=[1, 2])
+            queryset = queryset.filter(equipment_state__in=[1])
         calibration_state = request.GET.get('calibration_state')
         if calibration_state:
             calibration_qs = EquipmentCalibrationInfo.objects.all().values('equipment_id')
@@ -739,7 +793,7 @@ class OperateBorrowRecordGeneric(generics.RetrieveUpdateDestroyAPIView):
         return REST_SUCCESS({'msg': '删除成功'})
 
 
-# 查询可借用的时间范围
+# 查询不同借用类型可借用的时间范围
 @api_view(['GET'])
 def get_AllowBorrowTime(request):
     equipment_id = request.GET.get('equipment')
@@ -785,6 +839,147 @@ def get_AllowBorrowTime(request):
         if allow_borrow_days:
             allow_end_time = allow_start_time + datetime.timedelta(days=allow_borrow_days)
     return REST_SUCCESS(data={'allow_start_time': allow_start_time, 'allow_end_time': allow_end_time})
+
+
+# 申请借用(无审批版)
+class BorrowListNoCheck(generics.ListCreateAPIView):
+    queryset = EquipmentBorrowRecord.objects.all().order_by('-create_time')
+    serializer_class = BorrowRecordSerializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        search = request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
+        start_time = request.GET.get('start_time')
+        end_time = request.GET.get('end_time')
+        if start_time and end_time:
+            queryset = queryset.filter(Q(start_time__gte=start_time), Q(end_time__lte=end_time))
+
+        fuzzy_params = {}
+        fuzzy_params['user__username'] = request.GET.get('user_name', '')
+        fuzzy_params['equipment__fixed_asset_name'] = request.GET.get('fixed_asset_name', '')
+        fuzzy_params['project__name'] = request.GET.get('project_name', '')
+        fuzzy_params['user__section_name'] = request.GET.get('section_name', '')
+
+        filter_params = {}
+        for k, v in fuzzy_params.items():
+            if v != None and v != '':
+                k = k + '__contains'
+                filter_params[k] = v
+
+        if filter_params:
+            queryset = queryset.filter(**filter_params)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data.copy()
+        data.update({'user': request.user})
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        if start_time > end_time:
+            raise serializers.ValidationError('开始时间不能大于结束时间')
+
+        equipment = data.get('equipment')
+        if equipment.equipment_state != 1:
+            raise serializers.ValidationError('设备当前状态为{}, 暂时无法使用'.format(equipment.get_equipment_state_display()))
+        data.update({'per_hour_price': equipment.per_hour_price})
+        data.update({'is_approval': 1})  # 默认批准
+        data.update({'borrow_type': '正常申请'})
+        expect_usage_time = calculate_datediff_(start_time, end_time)
+        data.update({'expect_usage_time': expect_usage_time})
+        with transaction.atomic():
+            save_id = transaction.savepoint()
+            try:
+                Equipment.objects.filter(id=equipment.id).update(equipment_state=2)  # 更新设备状态为已借出
+                serializer.validated_data.update(data)
+                self.perform_create(serializer)
+                transaction.savepoint_commit(save_id)
+            except Exception as e:
+                transaction.savepoint_rollback(save_id)
+                logger.error('借用失败,error:{}'.format(str(e)))
+                raise serializers.ValidationError('借用失败')
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+# 操作借用记录(无审批版)
+class OperateBorrowRecordNoCheck(generics.RetrieveUpdateDestroyAPIView):
+    model = EquipmentBorrowRecord
+    queryset = model.objects.all()
+    serializer_class = OperateBorrowRecordSerializer
+    table_name = model._meta.db_table
+    verbose_name = model._meta.verbose_name
+
+    @set_update_log
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        old_is_return = instance.is_return
+        per_hour_price = instance.per_hour_price
+        start_time = instance.start_time
+        equipment_id = instance.equipment_id
+        equipment_obj = Equipment.objects.filter(id=equipment_id)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data.copy()
+        return_position = data.get('return_position')
+        if old_is_return == 0:
+            data.update({'is_return': 2})
+            actual_end_time = datetime.datetime.now()
+            data.update({'actual_end_time': actual_end_time})
+            actual_usage_time = calculate_datediff_(start_time, actual_end_time)
+            data.update({'actual_usage_time': actual_usage_time})
+            if per_hour_price:
+                total_amount = round((actual_usage_time * float(per_hour_price)), 2)
+                data.update({'total_amount': total_amount})
+            with transaction.atomic():
+                save_id = transaction.savepoint()
+                try:
+                    # 更新设备状态和位置
+                    equipment_obj.update(equipment_state=1,
+                                         deposit_position=return_position,
+                                         update_time=datetime.datetime.now())
+                    serializer.validated_data.update(data)
+                    self.perform_update(serializer)
+                    transaction.savepoint_commit(save_id)
+                except Exception as e:
+                    transaction.savepoint_rollback(save_id)
+                    logger.error('归还信息存储失败,error:{}'.format(str(e)))
+                    raise serializers.ValidationError('归还信息存储失败')
+        else:
+            serializer.validated_data.update(data)
+            self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
+
+
+# 可借用时间范围
+@api_view(['GET'])
+def allow_borrow_time_public(request):
+    allow_start_time = datetime.datetime.now().replace(second=0, microsecond=0)
+    return REST_SUCCESS(data={'allow_start_time': allow_start_time, 'allow_end_time': None})
 
 
 # 归还设备
@@ -974,7 +1169,7 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
 
 
 # 操作损坏记录
-class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
+class OperateBrokenInfoGeneric(generics.RetrieveUpdateDestroyAPIView):
     model = EquipmentBrokenInfo
     queryset = model.objects.all()
     serializer_class = OperateBrokenInfoSerializer
@@ -995,6 +1190,12 @@ class OperateBrokenInfoGeneric(generics.RetrieveUpdateAPIView):
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
+
+    @set_delete_log
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return REST_SUCCESS({'msg': '删除成功'})
 
 
 # 批量导入校准规范

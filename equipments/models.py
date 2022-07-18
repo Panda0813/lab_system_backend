@@ -235,7 +235,7 @@ class EquipmentBorrowRecord(models.Model):
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, verbose_name='设备')
     start_time = models.DateTimeField(verbose_name='借用开始时间')
     end_time = models.DateTimeField(verbose_name='借用结束时间')
-    borrow_type = models.CharField(verbose_name='借用类型', choices=BORROW_TYPE, default=BORROW_TYPE[0][0], max_length=20)
+    borrow_type = models.CharField(verbose_name='借用类型', choices=BORROW_TYPE, default=BORROW_TYPE[0][0], max_length=20, blank=True)
     is_approval = models.IntegerField(default=0, verbose_name='是否批准')  # 0 待审核, 1 已批准， 2 已拒绝
     refuse_reason = models.CharField(max_length=100, verbose_name='拒绝原因', null=True)
     is_borrow = models.BooleanField(default=False, verbose_name='是否借用成功')

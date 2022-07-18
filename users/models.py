@@ -67,14 +67,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
     username = models.CharField(max_length=50, verbose_name='用户名称', unique=True)
     telephone = models.CharField(max_length=11, verbose_name='联系方式', null=True, blank=True)
-    employee_no = models.CharField(max_length=10, verbose_name='工号', null=True)
-    email = models.EmailField(max_length=100, verbose_name='邮箱', null=True)
+    employee_no = models.CharField(max_length=10, verbose_name='工号', null=True, blank=True)
+    email = models.EmailField(max_length=100, verbose_name='邮箱', null=True, blank=True)
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='所属部门')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     register_time = models.DateTimeField(auto_now_add=True, verbose_name='注册时间')
     is_delete = models.BooleanField(default=False, verbose_name='是否删除')
     need_cc = models.BooleanField(default=False, verbose_name='是否需要抄送')
-    login_id = models.CharField(verbose_name='oa登录名', max_length=30, null=True)
+    login_id = models.CharField(verbose_name='oa登录名', max_length=30, null=True, blank=True)
     pwd_status = models.IntegerField(verbose_name='密码状态', default=0)  # 0 初始密码, 1 密码已修改，2 密码快到期
 
     USERNAME_FIELD = 'username'  # authenticate 进行验证的字段

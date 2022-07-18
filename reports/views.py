@@ -7,8 +7,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from equipments.models import EquipmentBorrowRecord, EquipmentMaintenanceRecord, EquipmentBrokenInfo
-from reports.time_utils import get_start_end
-from utils.timedelta_utls import calculate_datediff
+from reports.time_utils import get_start_end, get_start_end_
+from utils.timedelta_utls import calculate_datediff, calculate_datediff_
 from equipments.ext_utils import REST_SUCCESS, REST_FAIL, create_suffix, create_excel_resp, get_file_path
 from utils.permission import IsSuperUser
 
@@ -29,7 +29,7 @@ def get_usagetime(ndf, start_time, end_time):
     # 找出记录开始时间位于查询开始时间之前的记录
     last_ls = list(ndf.loc[ndf['start_time'] < start_time].index)
     for index in last_ls:
-        usage_time = calculate_datediff(start_time, ndf['end_time'].iloc[index].to_pydatetime())
+        usage_time = calculate_datediff_(start_time, ndf['end_time'].iloc[index].to_pydatetime())
         ndf['usage_time'].iloc[index] = usage_time
         if 'total_amount' in ndf:
             ndf['total_amount'].iloc[index] = ndf['per_hour_price'].iloc[index] * usage_time
@@ -37,7 +37,7 @@ def get_usagetime(ndf, start_time, end_time):
     # 找出记录结束时间位于查询结束时间之后的记录
     next_ls = list(ndf.loc[ndf['end_time'] > end_time].index)
     for index in next_ls:
-        usage_time = calculate_datediff(ndf['start_time'].iloc[index].to_pydatetime(), end_time)
+        usage_time = calculate_datediff_(ndf['start_time'].iloc[index].to_pydatetime(), end_time)
         ndf['usage_time'].iloc[index] = usage_time
         if 'total_amount' in ndf:
             ndf['total_amount'].iloc[index] = ndf['per_hour_price'].iloc[index] * usage_time
@@ -66,18 +66,19 @@ def get_usage_rate(request):
                 start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
                 end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
             except:
-                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
-                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
-            total_weekday = calculate_datediff(start_time, end_time)  # 总工时
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=0)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1, hours=0)
+            total_weekday = calculate_datediff_(start_time, end_time)  # 总工时
         else:
+            date_type = request.GET.get('date_type', 'week')  # week, month, year
+            start_time, end_time = get_start_end_(date_type)
             total_weekday_map = {
                 'week': 50,
                 'month': 208,
                 'year': 2500
             }
-            date_type = request.GET.get('date_type', 'week')  # week, month, year
-            start_time, end_time = get_start_end(date_type)
-            total_weekday = total_weekday_map[date_type]
+            # total_weekday = total_weekday_map[date_type]
+            total_weekday = calculate_datediff_(start_time, end_time)
         obj = obj.filter(Q(start_time__gte=start_time, actual_end_time__lte=end_time) |
                          Q(start_time__range=[start_time, end_time]) | Q(actual_end_time__range=[start_time, end_time]))
         borrow_record_qs = obj.values('id', 'user_id', 'user__username', 'equipment_id', 'equipment__name',
@@ -248,8 +249,8 @@ def get_use_detail(request):
                 start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
                 end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
             except:
-                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
-                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=0)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1, hours=0)
             obj = obj.filter(Q(start_time__gte=start_time, actual_end_time__lte=end_time) |
                              Q(start_time__range=[start_time, end_time]) | Q(actual_end_time__range=[start_time, end_time]))
         borrow_record_qs = obj.order_by('-id').values('user__username', 'equipment_id', 'equipment__name', 'project__name',
@@ -318,11 +319,11 @@ def get_maintenance_time(request):
                 start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
                 end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
             except:
-                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
-                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
-            total_weekday = calculate_datediff(start_time, end_time)  # 总工时
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=0)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1, hours=0)
+            total_weekday = calculate_datediff_(start_time, end_time)  # 总工时
         else:
-            start_time, end_time = get_start_end('quarter')  # 默认返回当前季度
+            start_time, end_time = get_start_end_('quarter')  # 默认返回当前季度
             total_weekday = 625
         obj = obj.filter(Q(down_time__gte=start_time, up_time__lte=end_time) |
                          Q(down_time__range=[start_time, end_time]) | Q(up_time__range=[start_time, end_time]))
@@ -464,11 +465,11 @@ def get_equipment_fee(request):
                 start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S')
                 end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
             except:
-                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=9)
-                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(hours=19)
+                start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d') + datetime.timedelta(hours=0)
+                end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d') + datetime.timedelta(days=1, hours=0)
         else:
             date_type = request.GET.get('date_type', 'week')  # week, month, year
-            start_time, end_time = get_start_end(date_type)
+            start_time, end_time = get_start_end_(date_type)
         obj = obj.filter(Q(start_time__gte=start_time, actual_end_time__lte=end_time) |
                          Q(start_time__range=[start_time, end_time]) | Q(
             actual_end_time__range=[start_time, end_time]))

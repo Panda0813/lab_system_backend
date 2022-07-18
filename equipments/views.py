@@ -853,8 +853,10 @@ class BorrowListNoCheck(generics.ListCreateAPIView):
             queryset = queryset.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
-        if start_time and end_time:
-            queryset = queryset.filter(Q(start_time__gte=start_time), Q(end_time__lte=end_time))
+        if start_time:
+            queryset = queryset.filter(Q(start_time__gte=start_time) | Q(end_time__gte=start_time))
+        if end_time:
+            queryset = queryset.filter(Q(start_time__lte=end_time) | Q(end_time__lte=end_time))
 
         fuzzy_params = {}
         fuzzy_params['user__username'] = request.GET.get('user_name', '')

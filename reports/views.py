@@ -53,12 +53,9 @@ def get_usage_rate(request):
         user_name = request.GET.get('user_name')
         if user_name:
             obj = obj.filter(user__username__contains=user_name)
-        equipment_id = request.GET.get('equipment')
-        if equipment_id:
-            obj = obj.filter(equipment_id=equipment_id)
-        equipment_name = request.GET.get('equipment_name')
-        if equipment_name:
-            obj = obj.filter(equipment__name__contains=equipment_name)
+        search = request.GET.get('search', '')
+        if search:
+            obj = obj.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
@@ -229,12 +226,9 @@ def get_use_detail(request):
         user_name = request.GET.get('user_name')
         if user_name:
             obj = obj.filter(user__username__contains=user_name)
-        equipment_id = request.GET.get('equipment')
-        if equipment_id:
-            obj = obj.filter(equipment_id=equipment_id)
-        equipment_name = request.GET.get('equipment_name')
-        if equipment_name:
-            obj = obj.filter(equipment__name__contains=equipment_name)
+        search = request.GET.get('search', '')
+        if search:
+            obj = obj.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         project_id = request.GET.get('project')
         if project_id:
             obj = obj.filter(project_id=project_id)
@@ -312,6 +306,9 @@ def get_maintenance_time(request):
         maintenance_user = request.GET.get('maintenance_user')
         if maintenance_user:
             obj = obj.filter(maintenance_user=maintenance_user)
+        search = request.GET.get('search', '')
+        if search:
+            obj = obj.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
@@ -394,9 +391,9 @@ def get_maintenance_time(request):
 def get_broken_record(request):
     try:
         obj = EquipmentBrokenInfo.objects
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            obj = obj.filter(equipment_id=equipment_id)
+        search = request.GET.get('search', '')
+        if search:
+            obj = obj.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:
@@ -455,9 +452,9 @@ def get_equipment_fee(request):
         section_id = request.GET.get('section')
         if section_id:
             obj = obj.filter(user__section__id=section_id)
-        equipment_id = request.GET.get('equipment')
-        if equipment_id:
-            obj = obj.filter(equipment_id=equipment_id)
+        search = request.GET.get('search', '')
+        if search:
+            obj = obj.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
         if start_time and end_time:

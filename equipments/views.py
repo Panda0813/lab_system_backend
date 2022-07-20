@@ -1117,9 +1117,9 @@ class BrokenInfoGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
+        search = request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
 
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
@@ -1306,9 +1306,6 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
 
         calibration_start_time = request.GET.get('calibration_start_time')
         calibration_end_time = request.GET.get('calibration_end_time')
@@ -1316,6 +1313,7 @@ class CalibrationInfoGeneric(generics.ListCreateAPIView):
             queryset = queryset.filter(calibration_time__range=[calibration_start_time, calibration_end_time])
 
         fuzzy_params = {}
+        fuzzy_params['equipment__id'] = request.GET.get('equipment', '')
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
 
         filter_params = {}
@@ -1582,6 +1580,7 @@ class OperateCertificateGeneric(generics.RetrieveUpdateDestroyAPIView):
         return REST_SUCCESS({'msg': '删除成功'})
 
 
+# 维修记录
 class MaintenanceGeneric(generics.ListCreateAPIView):
     model = EquipmentMaintenanceRecord
     queryset = model.objects.all().order_by('-create_time')
@@ -1592,9 +1591,9 @@ class MaintenanceGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
+        search = request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(Q(equipment__id__contains=search) | Q(equipment__name__contains=search))
 
         start_time = request.GET.get('start_time')
         end_time = request.GET.get('end_time')
@@ -1634,6 +1633,7 @@ class MaintenanceGeneric(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
+# 修改维修记录
 class OperateMaintenanceGeneric(generics.RetrieveUpdateDestroyAPIView):
     model = EquipmentMaintenanceRecord
     queryset = model.objects.all()
@@ -1762,11 +1762,9 @@ class MaintainInfoGeneric(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        equipment_id = request.GET.get('equipment', '')
-        if equipment_id:
-            queryset = queryset.filter(equipment__id=equipment_id)  # 精确查询
 
         fuzzy_params = {}
+        fuzzy_params['equipment__id'] = request.GET.get('equipment', '')
         fuzzy_params['equipment__name'] = request.GET.get('equipment_name', '')
 
         filter_params = {}
